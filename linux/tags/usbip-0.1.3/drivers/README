@@ -1,0 +1,19 @@
+This directory contains the source code of usbip drivers for mainline kernel.
+
+[How to make]
+	1. cd ./{version}/
+
+	2. make KSOURCE=/usr/src/kernel-source-2.6.15
+
+		KSOURCE is the directory that your kernel was built.
+
+	3. If succeed, vhci-hcd.ko and usbip.ko are built.
+
+[Tips]
+	If you want to see a lot of debug messages,
+		make KSOURCE=/usr/src/kernel-source-2.6.15 DEBUG=y
+
+	To disable debug output temporaly, write 0 to usbip_debug.
+	If you use ZSH,
+	   echo 0 >| /sys/bus/platform/drivers/vhci_hcd/vhci_hcd/usbip_debug
+	   echo 0 >| /sys/bus/usb/drivers/usbip/*/usbip_debug

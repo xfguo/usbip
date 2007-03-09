@@ -1,0 +1,6 @@
+#!/bin/sh -x
+
+aclocal
+autoheader
+automake-1.9 -acf
+autoconf
