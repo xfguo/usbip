@@ -97,6 +97,7 @@
 
 					<p>
 					See also source code and below papers.
+					(TODO)
 					</p>
 					
 					<UL>
@@ -117,20 +118,53 @@
 						</LI>
 					</UL>
 
-					<h2>Install</h2>
-					See READMEs in tarball.
-					T.B.D.  
 
-					<h2>Usages</h2>
+					<h2>Install</h2>
+					<p>
+					You need to compile both kernel modules and utility programs.
 					See READMEs in tarball.
-					T.B.D.  
+					(TODO)
+					</p>
+
+					<ul>
+						<li><a href="http://usbip.svn.sourceforge.net/viewvc/usbip/linux/trunk/drivers/README?view=markup">drivers/README</a>
+						<li><a href="http://usbip.svn.sourceforge.net/viewvc/usbip/linux/trunk/src/README?view=markup">src/README</a>
+					</ul>
+
+					<h2>Usage</h2>
+					<p>
+					See READMEs in tarball.
+					(TODO)
+					</p>
+					<ul>
+						<li><a href="http://usbip.svn.sourceforge.net/viewvc/usbip/linux/trunk/src/README?view=markup">src/README</a>
+					</ul>
 
 					<h2>TODO &amp; Future Plan</h2>
+					<p>
 					A lot.
+					(TODO)
+					</p>
 
 					<h2>FAQ</h2>
-					See READMEs in tarball.
-					T.B.D.  
+					<ul>
+						<li>"client" and "server" are confusing...
+						<br>A server host has physical USB devices which are exported to a client
+						host. In the server host, load vhci-hcd.ko and use usbipd.
+						The client host imports a USB device virtually; the client host may
+						not have a real USB device. In the client host, load usbip.ko and use usbip.
+
+						<li>USB/IP is stable ?
+						<br>No. It is still at a *very* early development stage.
+
+						<li>Do you have a plan to develop the MS Windows client of USB/IP ?
+						<br>Some people are trying to develop it. But, the Host Controller API of
+						MS Windows is not well-documented. This issue was discussed
+						in the project forum in sourceforge.net.
+
+						<li>Does your USB/IP implementation have compatibility with other similar products?
+						<br>No, currently.
+					</ul>
 
 					<h1><a name="screenshots">Screenshots</a></h1>
 
@@ -162,7 +196,11 @@
 
 					<h2>SVN Repository</h2>
 
-					T.B.D.
+					<p>
+					See 
+					<a href="http://sourceforge.net/svn/?group_id=122798">this instruction</a>.
+					</p>
+
 
 					<H1><a name="community">Community</a></H1>
 
@@ -188,7 +226,8 @@
 					</ul>
 
 					<H1><a name="contact">Contact</a></H1>
-					Normally, please use the above mailing lists and forums.
+					<p>Normally, please use the above mailing lists and forums.
+					</p>
 
 					<ul>
 						<li>Takahiro Hirofuchi &lt; hirofuchi (the character) users.sourceforge.net &gt;
