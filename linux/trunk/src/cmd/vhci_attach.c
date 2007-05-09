@@ -476,11 +476,90 @@ static void show_exported_devices(char *host)
 	close(sockfd);
 }
 
+static int attach_exported_devices(char *host, int sockfd)
+{
+	int ret;
+	struct op_devlist_reply rep;
+	uint16_t code = OP_REP_DEVLIST;
+
+	bzero(&rep, sizeof(rep));
+
+	ret = usbip_send_op_common(sockfd, OP_REQ_DEVLIST, 0);
+	if(ret < 0) {
+		err("send op_common");
+		return -1;
+	}
+
+	ret = usbip_recv_op_common(sockfd, &code);
+	if(ret < 0) {
+		err("recv op_common");
+		return -1;
+	}
+
+	ret = usbip_recv(sockfd, (void *) &rep, sizeof(rep));
+	if(ret < 0) {
+		err("recv op_devlist");
+		return -1;
+	}
+
+	PACK_OP_DEVLIST_REPLY(0, &rep);
+	dbg("exportable %d devices", rep.ndev);
+
+	for(unsigned int i=0; i < rep.ndev; i++) {
+		char product_name[100];
+		char class_name[100];
+		struct usb_device udev;
+
+		bzero(&udev, sizeof(udev));
+
+		ret = usbip_recv(sockfd, (void *) &udev, sizeof(udev));
+		if(ret < 0) {
+			err("recv usb_device[%d]", i);
+			return -1;
+		}
+		pack_usb_device(0, &udev);
+
+		usbip_names_get_product(product_name, sizeof(product_name),
+				udev.idVendor, udev.idProduct);
+		usbip_names_get_class(class_name, sizeof(class_name), udev.bDeviceClass,
+				udev.bDeviceSubClass, udev.bDeviceProtocol);
+
+		dbg("Attaching usb port %s from host %s on usbip, with deviceid: %s", udev.busid, host, product_name);
+		attach_device(host, udev.busid);
+	}
+
+	return rep.ndev;
+}
+
+static void attach_devices_all(char *host)
+{
+	int ret;
+	int sockfd;
+
+	sockfd = tcp_connect(host, USBIP_PORT_STRING);
+	if(sockfd < 0) {
+		info("- %s failed", host);
+		return;
+	}
+
+	info("- %s", host);
+
+	ret = attach_exported_devices(host, sockfd);
+	if(ret < 0) {
+		err("query");
+	}
+
+	close(sockfd);
+}
+
 
 const char help_message[] = "\
 Usage: usbip [options]				\n\
 	-a, --attach [host] [bus_id]		\n\
 		Attach a remote USB device.	\n\
+						\n\
+	-x, --attachall [host]		\n\
+		Attach all remote USB devices on the specific host.	\n\
 						\n\
 	-d, --detach [ports]			\n\
 		Detach an imported USB device.	\n\
@@ -528,6 +607,7 @@ static void show_port_status(void)
 #include <getopt.h>
 static const struct option longopts[] = {
 	{"attach",	no_argument,	NULL, 'a'},
+	{"attachall",	no_argument,	NULL, 'x'},
 	{"detach",	no_argument,	NULL, 'd'},
 	{"port",	no_argument,	NULL, 'p'},
 	{"list",	no_argument,	NULL, 'l'},
@@ -544,6 +624,7 @@ int main(int argc, char *argv[])
 
 	enum {
 		cmd_attach = 1,
+		cmd_attachall,
 		cmd_detach,
 		cmd_port,
 		cmd_list,
@@ -561,7 +642,7 @@ int main(int argc, char *argv[])
 		int c;
 		int index = 0;
 
-		c = getopt_long(argc, argv, "adplvhDS", longopts, &index);
+		c = getopt_long(argc, argv, "adplvhDSx", longopts, &index);
 
 		if (c == -1)
 			break;
@@ -593,6 +674,12 @@ int main(int argc, char *argv[])
 			case 'v':
 				if (!cmd)
 					cmd = cmd_version;
+				else
+					cmd = cmd_help;
+				break;
+			case 'x':
+				if(!cmd)
+					cmd = cmd_attachall;
 				else
 					cmd = cmd_help;
 				break;
@@ -631,6 +718,10 @@ int main(int argc, char *argv[])
 		case cmd_list:
 			while (optind < argc)
 				show_exported_devices(argv[optind++]);
+			break;
+		case cmd_attachall:
+			while(optind < argc)
+				attach_devices_all(argv[optind++]);
 			break;
 		case cmd_version:
 			printf("%s\n", version);

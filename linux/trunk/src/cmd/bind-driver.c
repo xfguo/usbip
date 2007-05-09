@@ -8,6 +8,8 @@ static const struct option longopts[] = {
 	{"usbip",	required_argument,	NULL, 'u'},
 	{"other",	required_argument,	NULL, 'o'},
 	{"list",	no_argument,		NULL, 'l'},
+	{"scriptlist",	no_argument,	NULL, 's'},
+	{"autobind",	no_argument,	NULL, 'a'},
 	{"help",	no_argument,		NULL, 'h'},
 	{NULL,		0,			NULL,  0}
 };
@@ -342,6 +344,104 @@ static int show_devices(void)
 	return 0;
 }
 
+static int show_devices_script(void)
+{
+	DIR *dir;
+
+	dir = opendir("/sys/bus/usb/devices/");
+	if (!dir)
+		g_error("opendir: %s", strerror(errno));
+
+	for (;;) {
+		struct dirent *dirent;
+		char *busid;
+
+		dirent = readdir(dir);
+		if (!dirent)
+			break;
+
+		busid = dirent->d_name;
+
+		if (is_usb_device(busid)) {
+			char name[100] = {'\0'};
+			char driver[100] =  {'\0'};
+			int conf, ninf = 0;
+			int i;
+			int islocal = 0;
+
+			conf = read_bConfigurationValue(busid);
+			ninf = read_bNumInterfaces(busid);
+
+			getdevicename(busid, name, sizeof(name));
+
+			for (i = 0; i < ninf; i++) {
+				getdriver(busid, conf, i, driver, sizeof(driver));
+				
+				if (strncmp(driver, "usbhid", 6) == 0 || strncmp(driver, "usb-storage", 11) == 0) {
+					islocal = 1;
+					break;
+				}
+			}
+			
+			if (islocal == 0)
+				printf("%s|%s|%s\n", busid, driver, name);
+		}
+	}
+
+	closedir(dir);
+
+	return 0;
+}
+
+static int auto_bind(void)
+{
+	DIR *dir;
+
+	dir = opendir("/sys/bus/usb/devices/");
+	if (!dir)
+		g_error("opendir: %s", strerror(errno));
+
+	for (;;) {
+		struct dirent *dirent;
+		char *busid;
+
+		dirent = readdir(dir);
+		if (!dirent)
+			break;
+
+		busid = dirent->d_name;
+
+		if (is_usb_device(busid)) {
+			char name[100] = {'\0'};
+			char driver[100] =  {'\0'};
+			int conf, ninf = 0;
+			int i;
+			int islocal = 0;
+
+			conf = read_bConfigurationValue(busid);
+			ninf = read_bNumInterfaces(busid);
+
+			getdevicename(busid, name, sizeof(name));
+
+			for (i = 0; i < ninf; i++) {
+				getdriver(busid, conf, i, driver, sizeof(driver));
+				
+				if (strncmp(driver, "usbhid", 6) == 0 || strncmp(driver, "usb-storage", 11) == 0) {
+					islocal = 1;
+					break;
+				}
+			}
+			
+			if (islocal == 0)
+				use_device_by_usbip(busid);
+		}
+	}
+
+	closedir(dir);
+
+	return 0;
+}
+
 static void show_help(void)
 {
 	printf("Usage: bind-driver [OPTION]\n");
@@ -349,6 +449,8 @@ static void show_help(void)
 	printf("  --usbip busid        make a device exportable by USB/IP\n");
 	printf("  --other busid        use a device by a local driver\n");
 	printf("  --list               print usb devices and their drivers\n");
+	printf("  --scriptlist      print usb devices and their drivers. handy for scripts\n");
+	printf("  --autobind     make all devices exportable by USB/IP\n");
 }
 
 int main(int argc, char **argv)
@@ -360,6 +462,8 @@ int main(int argc, char **argv)
 		cmd_use_by_usbip,
 		cmd_use_by_other,
 		cmd_list,
+		cmd_scriptlist,
+		cmd_autobind,
 		cmd_help
 	} cmd = cmd_unknown;
 
@@ -367,7 +471,7 @@ int main(int argc, char **argv)
 		int c;
 		int index = 0;
 
-		c = getopt_long(argc, argv, "u:o:hl", longopts, &index);
+		c = getopt_long(argc, argv, "u:o:hlsa", longopts, &index);
 		if (c == -1)
 			break;
 
@@ -382,6 +486,12 @@ int main(int argc, char **argv)
 				break;
 			case 'l' :
 				cmd = cmd_list;
+				break;
+			case 's' :
+				cmd = cmd_scriptlist;
+				break;
+			case 'a' :
+				cmd = cmd_autobind;
 				break;
 			case 'h':
 			case '?':
@@ -404,6 +514,12 @@ int main(int argc, char **argv)
 			break;
 		case cmd_list:
 			show_devices();
+			break;
+		case cmd_scriptlist:
+			show_devices_script();
+			break;
+		case cmd_autobind:
+			auto_bind();
 			break;
 		case cmd_help:
 		case cmd_unknown:
