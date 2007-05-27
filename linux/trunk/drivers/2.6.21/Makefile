@@ -2,7 +2,7 @@
 #
 # $Id$
 #
-# Copyright (C) 2003-2006 Takahiro Hirofuchi <taka-hir@is.naist.jp>
+# Copyright (C) 2003-2007 Takahiro Hirofuchi
 #
 #
 # This is free software; you can redistribute it and/or modify
