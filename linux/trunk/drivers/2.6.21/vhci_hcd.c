@@ -25,7 +25,7 @@
 #include "vhci.h"
 
 #define DRIVER_VERSION " $Id$ "
-#define DRIVER_AUTHOR "HIROFUCHI Takahiro <taka-hir@is.naist.jp>"
+#define DRIVER_AUTHOR "Takahiro Hirofuchi"
 #define DRIVER_DESC "Virtual Host Controller Interface Driver for USB/IP"
 #define DRIVER_LICENCE "GPL"
 MODULE_AUTHOR(DRIVER_AUTHOR);

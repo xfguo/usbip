@@ -14,7 +14,7 @@
 #include <fcntl.h>
 
 static const char version[] = PACKAGE_STRING
-	" ($Id: vhci_attach.c 97 2006-03-31 16:08:40Z taka-hir $)";
+	" ($Id$)";
 
 
 /* /sys/devices/platform/vhci_hcd/usb6/6-1/6-1:1.1  -> 1 */

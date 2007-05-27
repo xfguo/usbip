@@ -2,7 +2,7 @@
 #
 # $Id$
 #
-# Copyright (C) 2003-2006 Takahiro Hirofuchi <taka-hir@is.naist.jp>
+# Copyright (C) 2003-2007 Takahiro Hirofuchi
 
 
 Notice
@@ -43,7 +43,7 @@ Overview
     USB/IP packets into USB requests and then submit them to real USB
     devices. 
 
-    For more information, please see http://usbip.naist.jp/.
+    For more information, please see http://usbip.sourceforge.net/ .
     The detail is described in an academic paper.
 
 
@@ -55,7 +55,7 @@ Compile & Install
 FAQ
     Q.  I want to know how it works.
     A.  Please read my technical papers which are available at
-        http://usbip.naist.jp/.
+        http://usbip.sourceforge.net/ .
 
     Q.  Why does not USB/IP support Linux version 2.4 ?
     A.  The USB driver stack of version 2.6 is dramatically improved and now
@@ -101,7 +101,7 @@ Contact
     Please use the above forums and the mailing list, or contact me.
 
     Nara Institute of Science and Technology
-    Takahiro Hirofuchi <taka-hir@is.naist.jp>
+    Takahiro Hirofuchi <hirofuchi _at_ users.sourceforge.net>
 
 
 License

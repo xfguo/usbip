@@ -30,7 +30,7 @@
 #include <glib.h>
 
 static const char version[] = PACKAGE_STRING
-	" ($Id: stub_server.c 97 2006-03-31 16:08:40Z taka-hir $)";
+	" ($Id$)";
 
 
 static int send_reply_devlist(int sockfd)

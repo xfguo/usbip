@@ -26,7 +26,7 @@
 
 /* Version Information */
 #define DRIVER_VERSION "$Id$"
-#define DRIVER_AUTHOR "Takahiro Hirofuchi <taka-hir@is.naist.jp>"
+#define DRIVER_AUTHOR "Takahiro Hirofuchi"
 #define DRIVER_DESC "Stub Driver for USB/IP"
 
 
