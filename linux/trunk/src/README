@@ -2,7 +2,7 @@
 #
 # README for usbip-utils
 #
-# Copyright (C) 2005-2007 Takahiro Hirofuchi <taka-hir@is.naist.jp>
+# Copyright (C) 2005-2007 Takahiro Hirofuchi
 
 
 [Note]
@@ -208,4 +208,4 @@ Detach the imported device.
 
 
 [Contact]
-    taka-hir@is.naist.jp
+    Mailing List: usbip-devel _at_ lists.sourceforge.net

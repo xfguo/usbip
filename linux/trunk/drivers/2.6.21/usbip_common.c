@@ -1,5 +1,5 @@
 /*
- * $Id: usbip_common.c 242 2007-02-06 12:00:19Z taka-hir $
+ * $Id$
  *
  * Copyright (C) 2003-2006 Takahiro Hirofuchi <taka-hir@is.naist.jp>
  *
@@ -27,7 +27,7 @@
 #include "usbip_common.h"
 
 /* version information */
-#define DRIVER_VERSION "$Id: stub_main.c 243 2007-02-06 12:50:03Z taka-hir $"
+#define DRIVER_VERSION "$Id$"
 #define DRIVER_AUTHOR "Takahiro Hirofuchi <hirofuchi _at_ users.sourceforge.net>"
 #define DRIVER_DESC "usbip common driver"
 

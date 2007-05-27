@@ -1,6 +1,6 @@
 # Makefile for the USB/IP driver
 #
-# $Id: Makefile 243 2007-02-06 12:50:03Z taka-hir $
+# $Id$
 #
 # Copyright (C) 2003-2006 Takahiro Hirofuchi <taka-hir@is.naist.jp>
 #
@@ -37,12 +37,12 @@ KBUILD_VERBOSE:=1
 HCD_HEADER:=$(KSOURCE)/drivers/usb/core/hcd.h
 
 usbip_common-objs := usbip_common.o usbip_event.o
-usbip-objs    :=  stub_dev.o stub_main.o stub_rx.o stub_tx.o
-vhci-hcd-objs :=  vhci_sysfs.o vhci_tx.o vhci_rx.o vhci_hcd.o 
+usbip-objs 	  := stub_dev.o stub_main.o stub_rx.o stub_tx.o
+vhci-hcd-objs	  := vhci_sysfs.o vhci_tx.o vhci_rx.o vhci_hcd.o 
 
+obj-m += usbip_common.o
 obj-m += usbip.o
 obj-m += vhci-hcd.o
-obj-m += usbip_common.o
 
 EXTRA_CFLAGS += -DHCD_HEADER=\"$(HCD_HEADER)\"
 

@@ -1,5 +1,5 @@
 # vim:tw=78:ts=4:expandtab:ai:sw=4
-# $Id: NEWS 243 2007-02-06 12:50:03Z taka-hir $
+# $Id$
 
 usbip-0.1.5
     - Fix: "make dist" works.
@@ -15,6 +15,9 @@ usbip-0.1.5
     - setsockopt in userland
     - Add: 2.6.20 support?
     - Fix: use spin_lock_init() instead of SPIN_...
+    - Add: auto export of devices
+    - Remove: bandwidth entry from a pdu
+    - Fix: make common code as a separate module
 
 usbip-0.1.4
     - Fix: compile error & warning fix for 2.6.19

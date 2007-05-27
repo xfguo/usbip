@@ -1,5 +1,5 @@
 /*
- * $Id: stub_tx.c 209 2006-11-15 09:39:53Z taka-hir $
+ * $Id$
  *
  * Copyright (C) 2003-2006 Takahiro Hirofuchi <taka-hir@is.naist.jp>
  *

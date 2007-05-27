@@ -1,5 +1,5 @@
 /*
- * $Id: vhci.h 192 2006-10-24 08:51:47Z taka-hir $
+ * $Id$
  *
  * Copyright (C) 2003-2006 Takahiro Hirofuchi <taka-hir@is.naist.jp>
  *

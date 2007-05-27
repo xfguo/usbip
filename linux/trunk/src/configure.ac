@@ -2,8 +2,8 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_REVISION($Id: configure.ac 239 2006-12-26 09:51:23Z taka-hir $)
-AC_INIT(usbip, 0.1.5, taka-hir@is.naist.jp)
+AC_REVISION($Id$)
+AC_INIT(usbip, 0.1.5, usbip-devel@lists.sourceforge.net)
 AC_DEFINE(USBIP_VERSION, 0x000105, Numeric version number)
 
 AC_CONFIG_SRCDIR([config.h.in])

@@ -1,5 +1,5 @@
 /*
- * $Id: vhci_hcd.c 243 2007-02-06 12:50:03Z taka-hir $
+ * $Id$
  *
  * Copyright (C) 2003-2006 Takahiro Hirofuchi <taka-hir@is.naist.jp>
  *
@@ -24,7 +24,7 @@
 #include "usbip_common.h"
 #include "vhci.h"
 
-#define DRIVER_VERSION " $Id: vhci_hcd.c 243 2007-02-06 12:50:03Z taka-hir $ "
+#define DRIVER_VERSION " $Id$ "
 #define DRIVER_AUTHOR "HIROFUCHI Takahiro <taka-hir@is.naist.jp>"
 #define DRIVER_DESC "Virtual Host Controller Interface Driver for USB/IP"
 #define DRIVER_LICENCE "GPL"

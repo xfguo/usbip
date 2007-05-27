@@ -1,5 +1,5 @@
 /*
- * $Id: vhci_sysfs.c 242 2007-02-06 12:00:19Z taka-hir $
+ * $Id$
  *
  * Copyright (C) 2003-2006 Takahiro Hirofuchi <taka-hir@is.naist.jp>
  *

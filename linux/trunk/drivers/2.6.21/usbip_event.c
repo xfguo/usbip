@@ -1,5 +1,5 @@
 /*
- * $Id: usbip_event.c 205 2006-11-12 15:00:07Z taka-hir $
+ * $Id$
  *
  * Copyright (C) 2003-2006 Takahiro Hirofuchi <taka-hir@is.naist.jp>
  *
