@@ -490,8 +490,11 @@ static void vhci_tx_urb(struct urb *urb)
 	struct vhci_priv *priv;
 	unsigned long flag;
 
-	if (!vdev)
-		BUG();
+	if (!vdev) {
+		err("could not get virtual device");
+		//BUG();
+		return;
+	}
 
 	spin_lock_irqsave(&vdev->priv_lock, flag);
 

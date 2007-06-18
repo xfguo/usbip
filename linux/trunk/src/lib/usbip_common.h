@@ -18,13 +18,15 @@
 #include <netdb.h>
 #include <sys/socket.h>
 
+/*
+ * logging has moved to this file
+ */
+#include "log_util.h"
+
 #ifndef USBIDS_FILE
 #define USBIDS_FILE "/usr/share/hwdata/usb.ids"
 #endif
 
-extern int usbip_use_syslog;
-extern int usbip_use_stderr;
-extern int usbip_use_debug ;
 
 //#include <linux/usb_ch9.h>
 enum usb_device_speed {
@@ -50,6 +52,11 @@ enum usbip_device_status{
 	VDEV_ST_USED,
 	VDEV_ST_ERROR
 };
+
+/*
+extern int usbip_use_syslog;
+extern int usbip_use_stderr;
+extern int usbip_use_debug ;
 
 #define err(fmt, args...)	do { \
 	if (usbip_use_syslog) { \
@@ -95,6 +102,8 @@ enum usbip_device_status{
 
 
 #define BUG()	do { err("sorry, it's a bug"); abort(); } while (0)
+*/
+
 
 struct usb_interface {
 	uint8_t bInterfaceClass;

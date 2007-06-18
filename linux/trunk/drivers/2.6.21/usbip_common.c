@@ -697,8 +697,9 @@ void usbip_pack_pdu(struct usbip_header *pdu, struct urb *urb, int cmd, int pack
 			usbip_pack_ret_submit(pdu, urb, pack);
 			break;
 		default:
+			err("unknown command");
 			/* NOTREACHED */
-			BUG();
+			//BUG();
 	}
 }
 EXPORT_SYMBOL(usbip_pack_pdu);
@@ -800,7 +801,8 @@ void usbip_header_correct_endian(struct usbip_header *pdu, int send)
 
 		default:
 			/* NOTREACHED */
-			BUG();
+			err("unknown command in pdu header: %d", cmd);
+			//BUG();
 	}
 }
 EXPORT_SYMBOL(usbip_header_correct_endian);

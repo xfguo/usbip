@@ -37,8 +37,15 @@ static ssize_t show_status(struct device *dev, struct device_attribute *attr,
 	char *s = out;
 	int i = 0;
 
-	if (!the_controller || !out)
-		BUG();
+	if (!the_controller || !out) {
+		if(!the_controller) 
+			err("'the_controller' is undefined");
+		if(!out)
+			err("'out' is undefined");
+
+		//BUG();
+		return -1;
+	}
 
 	spin_lock(&the_controller->lock);
 

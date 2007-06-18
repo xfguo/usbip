@@ -267,6 +267,7 @@ static void stub_device_reset(struct usbip_device *ud)
 	struct usb_device *udev = interface_to_usbdev(sdev->interface);
 	int ret;
 
+	udbg("device reset");
 	ret = usb_lock_device_for_reset(udev, sdev->interface);
 	if (ret < 0) {
 		uerr("lock for reset\n");
@@ -318,6 +319,7 @@ static struct stub_device * stub_device_alloc(struct usb_interface *interface)
 {
 	struct stub_device *sdev;
 
+	udbg("allocating stub device");
 	/* yes, it's a new device */
 	sdev = (struct stub_device *) kzalloc(sizeof(struct stub_device), GFP_KERNEL);
 	if (!sdev) {
@@ -445,8 +447,11 @@ static void stub_disconnect(struct usb_interface *interface)
 	udbg("Enter\n");
 
 	/* get stub_device */
-	if (!sdev)
-		BUG();
+	if (!sdev) {
+		err(" could not get device from inteface data");
+		//BUG();
+		return;
+	}
 
 	usb_set_intfdata(interface, NULL);
 

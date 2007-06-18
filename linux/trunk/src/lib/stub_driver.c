@@ -288,6 +288,16 @@ int usbip_stub_export_device(struct usbip_exported_device *edev, int sockfd)
 
 	if (edev->status != SDEV_ST_AVAILABLE) {
 		info("device not available, %s", edev->udev.busid);
+		switch( edev->status ) {
+			case SDEV_ST_ERROR:
+				info("     status SDEV_ST_ERROR");
+				break;
+			case SDEV_ST_USED:
+				info("     status SDEV_ST_USED");
+				break;
+			default:
+				info("     status unknown: 0x%x", edev->status);
+		}
 		return -1;
 	}
 
