@@ -1,5 +1,6 @@
 
 #include "utils.h"
+#include "usbip_export.h"
 
 #define _GNU_SOURCE
 #include <getopt.h>
@@ -11,10 +12,28 @@ static const struct option longopts[] = {
 	{"scriptlist",	no_argument,	NULL, 's'},
 	{"autobind",	no_argument,	NULL, 'a'},
 	{"help",	no_argument,		NULL, 'h'},
+	{"export-to",   required_argument,	NULL, 'e'},
+	{"unexport",    required_argument,	NULL, 'x'},
+	{"busid",	required_argument,	NULL, 'b'},
 	{NULL,		0,			NULL,  0}
 };
 
 static const char match_busid_path[] = "/sys/bus/usb/drivers/usbip/match_busid";
+
+
+static void show_help(void)
+{
+	printf("Usage: bind-driver [OPTION]\n");
+	printf("Change driver binding for USB/IP.\n");
+	printf("  --usbip busid        make a device exportable by USB/IP\n");
+	printf("  --other busid        use a device by a local driver\n");
+	printf("  --list               print usb devices and their drivers\n");
+	printf("  --scriptlist         print usb devices and their drivers. handy for scripts\n");
+	printf("  --autobind           make all devices exportable by USB/IP\n");
+	printf("  --export-to host     export the device to 'host'\n");
+	printf("  --unexport host      unexport a device previously exported to 'host'\n");
+	printf("  --busid busid        the busid used for --export-to\n");
+}
 
 static int modify_match_busid(char *busid, int add)
 {
@@ -62,11 +81,14 @@ static int unbind_interface_busid(char *busid)
 	snprintf(unbind_path, sizeof(unbind_path), unbind_path_format, busid);
 
 	fd = open(unbind_path, O_WRONLY);
-	if (fd < 0)
+	if (fd < 0) {
+		g_debug("opening unbind_path failed: %d", fd);
 		return -1;
+	}
 
 	ret = write(fd, busid, strnlen(busid, BUS_ID_SIZE));
 	if (ret < 0) {
+		g_debug("write to unbind_path failed: %d", ret);
 		close(fd);
 		return -1;
 	}
@@ -79,6 +101,7 @@ static int unbind_interface_busid(char *busid)
 static int unbind_interface(char *busid, int configvalue, int interface)
 {
 	char inf_busid[BUS_ID_SIZE];
+	g_debug("unbinding interface");
 
 	snprintf(inf_busid, BUS_ID_SIZE, "%s:%d.%d", busid, configvalue, interface);
 
@@ -393,6 +416,76 @@ static int show_devices_script(void)
 	return 0;
 }
 
+static int export_to(char *host, char *busid) {
+
+	int ret;
+
+	if( host == NULL ) {
+		printf( "no host given\n\n");
+		show_help();
+		return -1;
+	}
+	if( busid == NULL ) {
+		/* XXX print device list and ask for busnumber, if none is
+		 * given */
+		printf( "no busid given, use --busid switch\n\n");
+		show_help();
+		return -1;
+	}
+
+
+	ret = use_device_by_usbip(busid);
+	if( ret != 0 ) {
+		printf( "could not bind driver to usbip\n");
+		return -1;
+	}
+
+	printf( "DEBUG: exporting device '%s' to '%s'\n", busid, host );
+	ret = export_busid_to_host(host, busid); /* usbip_export.[ch] */
+	if( ret != 0 ) {
+		printf( "could not export device to host\n" );
+		printf( "   host: %s, device: %s\n", host, busid );
+		use_device_by_other(busid);
+	}
+
+	return 0;
+}
+
+static int unexport_from(char *host, char *busid) {
+
+	int ret;
+
+	if( host == NULL ) {
+		printf( "no host given\n\n");
+		show_help();
+		return -1;
+	}
+	if( busid == NULL ) {
+		/* XXX print device list and ask for busnumber, if none is
+		 * given */
+		printf( "no busid given, use --busid switch\n\n");
+		show_help();
+		return -1;
+	}
+
+
+	printf( "DEBUG: unexporting device '%s' from '%s'\n", busid, host );
+	ret = unexport_busid_from_host(host, busid); /* usbip_export.[ch] */
+	if( ret != 0 ) {
+		printf( "could not unexport device from host\n" );
+		printf( "   host: %s, device: %s\n", host, busid );
+	}
+
+	ret = use_device_by_other(busid);
+	if( ret != 0 ) {
+		printf( "could not unbind device from usbip\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+
 static int auto_bind(void)
 {
 	DIR *dir;
@@ -442,20 +535,10 @@ static int auto_bind(void)
 	return 0;
 }
 
-static void show_help(void)
-{
-	printf("Usage: bind-driver [OPTION]\n");
-	printf("Change driver binding for USB/IP.\n");
-	printf("  --usbip busid        make a device exportable by USB/IP\n");
-	printf("  --other busid        use a device by a local driver\n");
-	printf("  --list               print usb devices and their drivers\n");
-	printf("  --scriptlist      print usb devices and their drivers. handy for scripts\n");
-	printf("  --autobind     make all devices exportable by USB/IP\n");
-}
-
 int main(int argc, char **argv)
 {
 	char *busid = NULL;
+	char *remote_host = NULL;
 
 	enum {
 		cmd_unknown = 0,
@@ -464,6 +547,8 @@ int main(int argc, char **argv)
 		cmd_list,
 		cmd_scriptlist,
 		cmd_autobind,
+		cmd_export_to,
+		cmd_unexport,
 		cmd_help
 	} cmd = cmd_unknown;
 
@@ -471,7 +556,7 @@ int main(int argc, char **argv)
 		int c;
 		int index = 0;
 
-		c = getopt_long(argc, argv, "u:o:hlsa", longopts, &index);
+		c = getopt_long(argc, argv, "u:o:hlsae:x:b:", longopts, &index);
 		if (c == -1)
 			break;
 
@@ -493,7 +578,18 @@ int main(int argc, char **argv)
 			case 'a' :
 				cmd = cmd_autobind;
 				break;
-			case 'h':
+			case 'b':
+				busid = optarg;
+				break;
+			case 'e':
+				cmd = cmd_export_to;
+				remote_host = optarg;
+				break;
+			case 'x':
+				cmd = cmd_unexport;
+				remote_host = optarg;
+				break;
+			case 'h': /* fallthrough */
 			case '?':
 				cmd = cmd_help;
 				break;
@@ -501,8 +597,8 @@ int main(int argc, char **argv)
 				g_error("getopt");
 		}
 
-		if (cmd)
-			break;
+		//if (cmd)
+		//	break;
 	}
 
 	switch (cmd) {
@@ -521,7 +617,13 @@ int main(int argc, char **argv)
 		case cmd_autobind:
 			auto_bind();
 			break;
-		case cmd_help:
+		case cmd_export_to:
+			export_to(remote_host, busid);
+			break;
+		case cmd_unexport:
+			unexport_from(remote_host, busid);
+			break;
+		case cmd_help: /* fallthrough */
 		case cmd_unknown:
 			show_help();
 			break;

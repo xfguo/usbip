@@ -183,3 +183,67 @@ int usbip_set_keepalive(int sockfd)
 
 	return ret;
 }
+
+/* IPv6 Ready */
+/*
+ * moved here from vhci_attach.c
+ */
+int tcp_connect(char *hostname, char *service)
+{
+	struct addrinfo hints, *res, *res0;
+	int sockfd;
+	int err;
+
+
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_socktype = SOCK_STREAM;
+
+	/* get all possible addresses */
+	err = getaddrinfo(hostname, service, &hints, &res0);
+	if (err) {
+		err("%s %s: %s", hostname, service, gai_strerror(err));
+		return -1;
+	}
+
+	/* try all the addresses */
+	for (res = res0; res; res = res->ai_next) {
+		char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
+
+		err = getnameinfo(res->ai_addr, res->ai_addrlen,
+				hbuf, sizeof(hbuf), sbuf, sizeof(sbuf), NI_NUMERICHOST | NI_NUMERICSERV);
+		if (err) {
+			err("%s %s: %s", hostname, service, gai_strerror(err));
+			continue;
+		}
+
+		dbg("trying %s port %s\n", hbuf, sbuf);
+
+		sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+		if (sockfd < 0) {
+			err("socket");
+			continue;
+		}
+
+		/* should set TCP_NODELAY for usbip */
+		usbip_set_nodelay(sockfd);
+		/* TODO: write code for heatbeat */
+		usbip_set_keepalive(sockfd);
+
+		err = connect(sockfd, res->ai_addr, res->ai_addrlen);
+		if (err < 0) {
+			close(sockfd);
+			continue;
+		}
+
+		/* connected */
+		dbg("connected to %s:%s", hbuf, sbuf);
+		freeaddrinfo(res0);
+		return sockfd;
+	}
+
+
+	dbg("%s:%s, %s", hostname, service, "no destination to connect to");
+	freeaddrinfo(res0);
+
+	return -1;
+}

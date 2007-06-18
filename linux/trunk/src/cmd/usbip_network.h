@@ -83,6 +83,53 @@ struct op_import_reply {
 	pack_usb_device(pack, &(reply)->udev);\
 } while (0)
 
+
+
+/* ---------------------------------------------------------------------- */
+/* Export a USB device to a remote host. */
+#define OP_EXPORT	0x06
+#define OP_REQ_EXPORT	(OP_REQUEST | OP_EXPORT)
+#define OP_REP_EXPORT	(OP_REPLY   | OP_EXPORT)
+
+struct op_export_request {
+	struct usb_device udev;
+} __attribute__((packed));
+
+struct op_export_reply {
+	int returncode; 
+} __attribute__((packed));
+
+
+#define PACK_OP_EXPORT_REQUEST(pack, request)  do {\
+	pack_usb_device(pack, &(request)->udev);\
+} while (0)
+
+#define PACK_OP_EXPORT_REPLY(pack, reply)  do {\
+} while (0)
+
+/* ---------------------------------------------------------------------- */
+/* un-Export a USB device from a remote host. */
+#define OP_UNEXPORT	0x07
+#define OP_REQ_UNEXPORT	(OP_REQUEST | OP_UNEXPORT)
+#define OP_REP_UNEXPORT	(OP_REPLY   | OP_UNEXPORT)
+
+struct op_unexport_request {
+	struct usb_device udev;
+} __attribute__((packed));
+
+struct op_unexport_reply {
+	int returncode; 
+} __attribute__((packed));
+
+#define PACK_OP_UNEXPORT_REQUEST(pack, request)  do {\
+	pack_usb_device(pack, &(request)->udev);\
+} while (0)
+
+#define PACK_OP_UNEXPORT_REPLY(pack, reply)  do {\
+} while (0)
+
+
+
 /* ---------------------------------------------------------------------- */
 /* Negotiate IPSec encryption key. (still not used) */
 #define OP_CRYPKEY	0x04
@@ -142,6 +189,8 @@ int usbip_recv_op_common(int sockfd, uint16_t *code);
 int usbip_set_reuseaddr(int sockfd);
 int usbip_set_nodelay(int sockfd);
 int usbip_set_keepalive(int sockfd);
+
+int tcp_connect(char *hostname, char *service);
 
 #define USBIP_PORT 3240
 #define USBIP_PORT_STRING "3240"
