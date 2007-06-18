@@ -36,11 +36,11 @@ KBUILD_VERBOSE:=1
 
 HCD_HEADER:=$(KSOURCE)/drivers/usb/core/hcd.h
 
-usbip_common-objs := usbip_common.o usbip_event.o
+usbip_common_mod-objs := usbip_common.o usbip_event.o
 usbip-objs 	  := stub_dev.o stub_main.o stub_rx.o stub_tx.o
 vhci-hcd-objs	  := vhci_sysfs.o vhci_tx.o vhci_rx.o vhci_hcd.o 
 
-obj-m += usbip_common.o
+obj-m += usbip_common_mod.o
 obj-m += usbip.o
 obj-m += vhci-hcd.o
 

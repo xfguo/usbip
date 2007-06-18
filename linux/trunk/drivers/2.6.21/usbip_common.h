@@ -346,6 +346,7 @@ void usbip_stop_threads(struct usbip_device *ud);
 int usbip_thread(void *param);
 
 void usbip_pack_pdu(struct usbip_header *pdu, struct urb *urb, int cmd, int pack);
+
 void usbip_header_correct_endian(struct usbip_header *pdu, int send);
 /* some members of urb must be substituted before. */
 int usbip_recv_xbuff(struct usbip_device *ud, struct urb *urb);

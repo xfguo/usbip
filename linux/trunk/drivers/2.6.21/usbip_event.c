@@ -40,6 +40,7 @@ void usbip_start_eh(struct usbip_device *ud)
 
 	wait_for_completion(&eh->thread_done);
 }
+EXPORT_SYMBOL(usbip_start_eh);
 
 void usbip_stop_eh(struct usbip_device *ud)
 {
@@ -48,6 +49,7 @@ void usbip_stop_eh(struct usbip_device *ud)
 	wait_for_completion(&eh->thread_done);
 	dbg_eh("usbip_eh has finished\n");
 }
+EXPORT_SYMBOL(usbip_stop_eh);
 
 
 void usbip_event_add(struct usbip_device *ud, unsigned long event)
@@ -60,6 +62,7 @@ void usbip_event_add(struct usbip_device *ud, unsigned long event)
 
 	spin_unlock(&ud->lock);
 }
+EXPORT_SYMBOL(usbip_event_add);
 
 int usbip_event_happend(struct usbip_device *ud)
 {
@@ -74,6 +77,7 @@ int usbip_event_happend(struct usbip_device *ud)
 
 	return happend;
 }
+EXPORT_SYMBOL(usbip_event_happend);
 
 
 static int event_handler(struct usbip_device *ud)
