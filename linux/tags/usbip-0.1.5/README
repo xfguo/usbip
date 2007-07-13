@@ -1,0 +1,129 @@
+# vim:tw=78:ts=4:expandtab:ai:sw=4
+#
+# $Id$
+#
+# Copyright (C) 2003-2007 Takahiro Hirofuchi
+
+
+Notice
+    This is a "pre-alpha" release.  
+    Some functions have not been implemented completely. There are a lot
+    of bugs. But, I believe you can understand our concept by this
+    implementation. Your contributions are welcome. Please contact me.
+
+
+Overview
+    The USB/IP Project aims to develop a general USB device sharing system
+    over IP network. To share USB devices between computers with their
+    full functionality, USB/IP encapsulates "USB requests" into IP packets
+    and transmits them between computers. Original USB device drivers and
+    applications can be also used for remote USB devices without any
+    modification of them.  A computer can use remote USB devices as if
+    they were directly attached; for example, we can ...
+
+        - USB storage devices: fdisk, mkfs, mount/umount, file operations,
+          play a DVD movie and record a DVD-R media.  
+
+        - USB keyboards and USB mice: use with linux console and X Window
+          System.  
+
+        - USB webcams and USB speakers: view webcam, capture image data and
+          play some music.
+
+        - USB printers, USB scanners, USB serial converters and USB Ethernet
+          interfaces: ok, use fine. 
+
+    In a client host, the VHCI (Virtual Host Controller Interface) driver
+    is implemented as a USB host controller driver. The VHCI driver
+    emulates a real USB host controller interface for virtual
+    attachment/detachment, enumeration and initialization of remote USB
+    devices. It encapsulates USB request blocks and then transmits USB/IP
+    packets to remote server hosts. In a server host, the Stub driver is
+    implemented as a USB per-device driver. The Stub driver decapsulates
+    USB/IP packets into USB requests and then submit them to real USB
+    devices. 
+
+    For more information, please see http://usbip.sourceforge.net/ .
+    The detail is described in an academic paper.
+
+
+Compile & Install
+    USB/IP needs both kernel drivers and userland utilities.
+    See ./{drivers, src}/README.
+
+
+FAQ
+    Q.  I want to know how it works.
+    A.  Please read my technical papers which are available at
+        http://usbip.sourceforge.net/ .
+
+    Q.  Why does not USB/IP support Linux version 2.4 ?
+    A.  The USB driver stack of version 2.6 is dramatically improved and now
+        very different from 2.4. I think 2.6 kernel is only suitable for it.
+        Anyway, long days ago, I tried to develop it for 2.4 experimentally.
+        Its code is now available at the download area. But, please understand
+        it lacks some essential functionality and very unstable. Do not use
+        it and do not ask me about it. I will never develop the 2.4 version of
+        USB/IP anymore.
+
+    Q.  "client" and "server" are confusing...
+    A.  A server host has physical USB devices which are exported to a client
+        host. In the server host, load vhci-hcd.ko and use usbipd.
+        The client host imports a USB device virtually; the client host may
+        not have a real USB device. In the client host, load usbip.ko and use usbip.
+
+    Q.  USB/IP is stable ?
+    A.  No. It is still at a *very* early development stage.
+
+    Q.  Do you have a plan to develop the MS Windows client of USB/IP ?
+    A.  Some people are trying to develop it. But, the Host Controller API of
+        MS Windows is not well-documented. This issue was discussed
+        in the project forum in sf.net.
+
+    Q.  Does your USB/IP implementation have compatibility with Anywhere USB ?
+    A.  No.
+
+
+Public Forum and Mailing List
+    They are available in the project page on sourceforge.net.
+        Forums
+            http://sourceforge.net/forum/forum.php?forum_id=418509
+        Mailing List
+            http://sourceforge.net/mail/?group_id=122798
+
+
+RSS feeds (e.g., the latest file releases)
+    http://sourceforge.net/export/rss2_project.php?group_id=122798
+
+
+Contact
+    Bug reports, feature requests, and your comments are welcome.
+    Please use the above forums and the mailing list, or contact me.
+
+    usbip-devel _at_ lists.sourceforge.net (Recommended)
+
+    Takahiro Hirofuchi <hirofuchi _at_ users.sourceforge.net>
+
+
+License
+    This program is free software; you can redistribute it and/or modify it
+    under the terms of the GNU General Public License as published by the Free
+    Software Foundation; either version 2 of the License, or (at your option)
+    any later version.
+    
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+    or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+    for more details.
+    
+    You should have received a copy of the GNU General Public License along
+    with this program; if not, write to the Free Software Foundation, Inc., 59
+    Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+
+Thanks
+    All the people who gave me comments, bug report, and helpful code!
+    I refer some Linux kernel code; especially,
+        drivers/usb/usb-skeleton.c
+        drivers/usb/dummy_hcd.c
+        drivers/usb/host/* .
