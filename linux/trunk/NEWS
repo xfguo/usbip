@@ -1,6 +1,8 @@
 # vim:tw=78:ts=4:expandtab:ai:sw=4
 # $Id$
 
+usbip-0.1.6
+
 usbip-0.1.5
     - Fix: "make dist" works.
     - Cleanup: use autoreconf instead.

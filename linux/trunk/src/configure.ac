@@ -3,8 +3,8 @@
 
 AC_PREREQ(2.59)
 AC_REVISION($Id$)
-AC_INIT(usbip, 0.1.5, usbip-devel@lists.sourceforge.net)
-AC_DEFINE(USBIP_VERSION, 0x000105, Numeric version number)
+AC_INIT(usbip, 0.1.6, usbip-devel@lists.sourceforge.net)
+AC_DEFINE(USBIP_VERSION, 0x000106, Numeric version number)
 
 AC_CONFIG_SRCDIR([config.h.in])
 AM_INIT_AUTOMAKE
