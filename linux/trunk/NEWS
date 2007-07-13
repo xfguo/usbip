@@ -18,6 +18,7 @@ usbip-0.1.5
     - Add: auto export of devices
     - Remove: bandwidth entry from a pdu
     - Fix: make common code as a separate module
+        * Load usbip_common_mod.ko first!
 
 usbip-0.1.4
     - Fix: compile error & warning fix for 2.6.19

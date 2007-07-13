@@ -37,9 +37,11 @@ device to the virtual host controller running on the same system.
 
 [Usage]
 
+	server # insmod usbip_common_mod.ko
 	server # insmod vhci-hcd.ko
 	server # usbaid
 
+	client # insmod usbip_common_mod.ko
 	client # insmod usbip.ko
 	client # bind-driver --list
 	client # bind-driver --export-to server.address --busid busid
