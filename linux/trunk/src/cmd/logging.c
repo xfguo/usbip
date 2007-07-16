@@ -1,8 +1,9 @@
 /*
- * $Id$
+ * logging.h
+ *
  *
  * Copyright (C) 2007 by Robert Leibl <robert.leibl@gmail.com>
- *
+ * 
  * This program is free software; you can redistribute it and/or 
  * modify it under the terms of the GNU General Public License 
  * as published by the Free Software Foundation; either 
@@ -20,30 +21,34 @@
  * 
  */
 
-#ifndef _USBIP_EXPORT_H_
-#define _USBIP_EXPORT_H_
-
-#include <stub_driver.h>
-#include <glib.h>
-
 #include "logging.h"
-#include "usbip_network.h"
 
-/*
- * XXX This is defined in usbaid.c
- * Use a common header!
- */
-#define USBAID_PORT_STRING "6000"
+int open_log() {
+
+	logfile = fopen( LOGFILE, "a" );
+
+	if ( ! logfile ) {
+		fprintf( stderr, "error opening logfile: %s\n", strerror(errno) );
+		fprintf( stderr, "logging will be to STDOUT\n" );
+		logfile = stdout;
+	}
+	printf( "logfile open\n" );
+	fprintf( logfile, "\n\n-------------------------------------------\n" );
+
+	logfile_open = 1;
+
+	return 0;
+}
+
+int close_log() {
+
+	logfile_open = 0;
+
+	if( logfile == stdout )
+		return 0;
+
+	fclose( logfile );
 
 
-int export_busid_to_host(char *host, char *busid);
-int unexport_busid_from_host(char *host, char *busid);
-
-int send_request_export(int sockfd, struct usb_device *udev);
-int send_request_unexport(int sockfd, struct usb_device *udev);
-
-struct usbip_exported_device *busid_to_edev(char *busid);
-
-
-
-#endif /* _USBIP_EXPORT_H_ */
+	return 0;
+}

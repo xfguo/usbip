@@ -1,0 +1,64 @@
+
+This document describes the usage of the hotplug scripts for the usbip
+project.
+
+[Prerequisities]
+	The Linux Hotplug System from
+	http://linux-hotplug.sourceforge.net/
+
+[Installation]
+	copy this directory (usbip) to /etc
+	(so you get /etc/usbip/)
+
+	edit the configuration file /etc/usbip/usbip_export.conf
+
+	copy usbip_export.hotplug to /etc/hotplug.d/usb/
+	if the 'usb' directory does not exist, create it.
+
+	The directory for hotplug scripts is a default from the Linux
+	Hotplugging Project. Howvever, this directory may vary for your
+	distribution.
+
+[Operation]
+	The hotplug script (usbip.hotplug) will be called, whenever there is a
+	hotplug event, i.e. whenever a USB device is attached or removed.
+
+	The script will then determin, if it runs on a server or a client.
+	'on a server' means that the device is attached on the virtual host
+	controller (vhci-hcd), and 'on a client' means that the device is
+	physically attached and should be exported to the server.
+
+	Client: On a client, the hotplug script will call all scripts in
+	/etc/usbip/client.d/*.hotplug
+	Those scripts are not passed any parameters, but they will inherit the
+	environment variables from the hotplug script.
+	The scripts will be run, _before_ the config gets parsed, and the
+	device is exported.
+
+	Server: On a server, the hotplug script will call all scripts in
+	/etc/usbip/server.d/*.hotplug
+	Those scripts are not passed any parameters, but they will inherit the
+	environment variables from the hotplug script.
+	The scripts on the server are executed only when devices are attached!
+
+[Customization]
+
+	You may place your own scripts in /etc/usbip/server.d/
+
+	These scripts will be called whenever a device is attached to the
+	virtual host controller.
+	
+	Your script will inherit the environment variables from the calling
+	hotplug script.
+	Those are (among others):
+		CLIENT_ADDRESS 
+			The IP address of the client 
+		DEVPATH
+			The path to the device in Sysfs
+		ACTION
+			only "add"
+
+	You can, e.g. use these scripts to 'chown' a device when it is
+	attached. 
+
+	At this point, you cannot take action, if the device is unplugged.

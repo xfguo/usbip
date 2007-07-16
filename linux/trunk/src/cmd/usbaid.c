@@ -159,11 +159,13 @@ static int init_single_socket(int *sock, struct addrinfo *ai) {
 	s = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
 	if( s < 0 ) {
 		*sock = s;
+		err("error creating socket");
 		return 0;
 	}
 
 	if( s > FD_SETSIZE ) {
 		close(s);
+		err("FD_SETSIZE overrun");
 		*sock = -1;
 		return 0;
 	}
@@ -177,6 +179,7 @@ static int init_single_socket(int *sock, struct addrinfo *ai) {
 	/* bind */
 	ret = bind( s, ai->ai_addr, ai->ai_addrlen);
 	if( ret < 0 ) {
+		err("could not bind socket: %s", strerror(errno));
 		close(s);
 		*sock = -1;
 		return 0;
@@ -186,6 +189,7 @@ static int init_single_socket(int *sock, struct addrinfo *ai) {
 	/* listen */
 	ret = listen(s, SOMAXCONN);
 	if( ret < 0 ) {
+		err("could not set listen mode for socket");
 		close(s);
 		*sock = -1;
 		return 0;
@@ -196,6 +200,7 @@ static int init_single_socket(int *sock, struct addrinfo *ai) {
 
 	*sock = s;
 
+	dbg("single socket initialized");
 	return 1;
 
 }

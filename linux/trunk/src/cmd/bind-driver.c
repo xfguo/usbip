@@ -1,9 +1,18 @@
 
 #include "utils.h"
 #include "usbip_export.h"
+#include "usbip_hotplug.h"
+#include "logging.h"
+#include "hotplug_config.h"
 
 #define _GNU_SOURCE
 #include <getopt.h>
+
+
+/*
+ * functions using 'logging.h' facilities log to stdout per default
+ */
+int logfile_open = 0;
 
 static const struct option longopts[] = {
 	{"usbip",	required_argument,	NULL, 'u'},
@@ -15,6 +24,7 @@ static const struct option longopts[] = {
 	{"export-to",   required_argument,	NULL, 'e'},
 	{"unexport",    required_argument,	NULL, 'x'},
 	{"busid",	required_argument,	NULL, 'b'},
+	{"hotplug",     no_argument,            NULL, 'H'},
 	{NULL,		0,			NULL,  0}
 };
 
@@ -33,6 +43,9 @@ static void show_help(void)
 	printf("  --export-to host     export the device to 'host'\n");
 	printf("  --unexport host      unexport a device previously exported to 'host'\n");
 	printf("  --busid busid        the busid used for --export-to\n");
+	printf("  --hotplug            automatically export a new device\n");
+	printf("                       NOTE: This option must be used from a\n");
+	printf("                             hotplug environment\n");
 }
 
 static int modify_match_busid(char *busid, int add)
@@ -446,6 +459,7 @@ static int export_to(char *host, char *busid) {
 		printf( "could not export device to host\n" );
 		printf( "   host: %s, device: %s\n", host, busid );
 		use_device_by_other(busid);
+		return -1;
 	}
 
 	return 0;
@@ -456,35 +470,183 @@ static int unexport_from(char *host, char *busid) {
 	int ret;
 
 	if( host == NULL ) {
-		printf( "no host given\n\n");
+		logerr( "no host given\n\n");
 		show_help();
 		return -1;
 	}
 	if( busid == NULL ) {
 		/* XXX print device list and ask for busnumber, if none is
 		 * given */
-		printf( "no busid given, use --busid switch\n\n");
+		logerr( "no busid given, use --busid switch\n\n");
 		show_help();
 		return -1;
 	}
+	logmsg("unexport_from: host: '%s', busid: '%s'", host, busid);
 
 
 	printf( "DEBUG: unexporting device '%s' from '%s'\n", busid, host );
 	ret = unexport_busid_from_host(host, busid); /* usbip_export.[ch] */
 	if( ret != 0 ) {
-		printf( "could not unexport device from host\n" );
-		printf( "   host: %s, device: %s\n", host, busid );
+		logerr( "could not unexport device from host\n" );
+		logerr( "   host: %s, device: %s\n", host, busid );
 	}
 
 	ret = use_device_by_other(busid);
 	if( ret != 0 ) {
-		printf( "could not unbind device from usbip\n");
+		logerr( "could not unbind device from usbip\n");
 		return -1;
 	}
 
 	return 0;
 }
 
+static int hotplug_remove_device(void) {
+
+	int ret;
+	char serv[256];
+	char *busid;
+
+	logmsg("bind-driver.c:: removing device" );
+
+	busid = get_busid_from_env();
+	if( busid == NULL ) {
+		logmsg("error retrieving busid");
+		return -1;
+	}
+	logmsg("busid = '%s'", busid);
+
+	ret = get_tmp_file(serv, busid);
+	if(ret) {
+		logerr("could not get server from /tmp file" );
+		return -1;
+	}
+	logmsg("export server is '%s'", serv);
+
+	/* XXX
+	 * we don't do anything here. The server will know by itself, that the
+	 * device is no longer available, as the connection will break down,
+	 * and it will (afai guess) receive the 'UNAVAILABLE' signal. If we
+	 * try to use unexport_from at this point, the driver might already be
+	 * unavailable, which will result in a segmentation fault!
+	 */
+	/*ret = unexport_from(serv, busid);
+	if(ret) {
+		logerr("exporting of device failed");
+		return -1;
+	}*/
+	
+	remove_tmp_file(serv, busid);
+
+	logmsg("device removed");
+
+	return 0;
+}
+
+static int hotplug_add_device(void) {
+
+	int ret;
+	char serv[256];
+	char *busid = NULL;
+
+	logmsg("bind-driver.c:: adding device" );
+
+	ret = read_config();
+	if(ret) {
+		if(ret == 1) {
+			logmsg("usbip turned off in config file");
+			return 0;
+		}else {
+			logerr("error reading config file");
+			return -1;
+		}
+	}
+
+	ret = get_export_server(serv, 256);/*XXX*/
+	if(ret) {
+		logerr("could not get export server");
+		return -1;
+	}
+	logmsg("export server is '%s'", serv);
+
+	ret = export_device_q();
+	switch (ret) {
+		case EXPORT:
+			logmsg(" -- exporting device --" );
+			break;
+		case NO_EXPORT:
+			logmsg(" -- not exporting device --");
+			return 0;
+			break;
+		default:
+			logwarn("export_device_q returned with error: %d",ret);
+			return -1;
+	}
+
+	busid = get_busid_from_env();
+	if( busid == NULL ) {
+		logerr("error retrieving busid");
+		return -1;
+	}
+	logmsg("busid: '%s'", busid);
+
+	logmsg("exporting device '%s' to server '%s'", busid, serv);
+	ret = export_to(serv, busid);
+	if(ret) {
+		logerr("exporting of device failed");
+		logerr("see syslog for details");
+		return -1;
+	}
+	logmsg("device exported");
+
+	
+	ret = create_tmp_file(serv, busid);
+	if(ret) {
+		logwarn("failed to create /tmp file");
+	}
+
+	return 0;
+}
+
+static int hotplug(void) {
+
+	int ret;
+	char *action;
+
+
+	ret = open_log();
+	if( ret < 0 ) {
+		logwarn("could not open logfile");
+	}
+	logmsg(" ------------ hotplug() called ---------------" );
+
+
+	ret = check_environment_sane();
+	if( ret ) {
+		logerr("environment is not sane");
+		return -1;
+	}
+
+	action = getenv("ACTION");
+	if( action == NULL ) { /* after check_environment that cannot happen */
+		logerr("ACTION is not set.");
+		return -1;
+	}
+
+	if( ! strncmp(action, "add", 3 )) {
+		hotplug_add_device();
+	}
+	else if( ! strncmp(action, "remove", 6)) {
+		hotplug_remove_device();
+	}
+	else {
+		logerr("illegal ACTION value: %s", action);
+		return -1;
+	}
+	
+	close_log();
+
+	return 0;
+}
 
 static int auto_bind(void)
 {
@@ -549,14 +711,15 @@ int main(int argc, char **argv)
 		cmd_autobind,
 		cmd_export_to,
 		cmd_unexport,
-		cmd_help
+		cmd_help,
+		cmd_hotplug
 	} cmd = cmd_unknown;
 
 	for (;;) {
 		int c;
 		int index = 0;
 
-		c = getopt_long(argc, argv, "u:o:hlsae:x:b:", longopts, &index);
+		c = getopt_long(argc, argv, "u:o:hlsae:x:b:H", longopts, &index);
 		if (c == -1)
 			break;
 
@@ -588,6 +751,9 @@ int main(int argc, char **argv)
 			case 'x':
 				cmd = cmd_unexport;
 				remote_host = optarg;
+				break;
+			case 'H':
+				cmd = cmd_hotplug;
 				break;
 			case 'h': /* fallthrough */
 			case '?':
@@ -622,6 +788,9 @@ int main(int argc, char **argv)
 			break;
 		case cmd_unexport:
 			unexport_from(remote_host, busid);
+			break;
+		case cmd_hotplug:
+			hotplug();
 			break;
 		case cmd_help: /* fallthrough */
 		case cmd_unknown:

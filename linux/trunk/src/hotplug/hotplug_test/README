@@ -1,0 +1,23 @@
+
+In order to test, if hotplugging is set up correctly on your machine, you may
+copy the file 'hotplug_test.hotplug' to /etc/hotplug.d/usb/ . If the 'usb'
+directory does not exists, yet, create it.
+
+Check, if hotplugging is enabled in your kernel.  If the file
+/proc/sys/kernel/hotplug exists, then hotplugging is enabled.
+
+Check, if your kernel is calling the correct hotplug helper.  This helper is
+usually /sbin/hotplug .  You can check this by 'cat'ing the value of the above
+/proc file.
+
+  you@host $ cat /proc/sys/kernel/hotplug
+  /sbin/hotplug
+
+If the result is empty, set the hotplug helper
+
+  you@host $ echo /sbin/hotplug > /proc/sys/kernel/hotplug
+
+
+Now, if your hotplug system is set up correctly, the test script will create a
+file /tmp/hotplug_test.log .
+This file will hold some test results.
