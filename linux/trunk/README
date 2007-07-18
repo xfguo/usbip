@@ -33,12 +33,12 @@ Overview
         - USB printers, USB scanners, USB serial converters and USB Ethernet
           interfaces: ok, use fine. 
 
-    In a client host, the VHCI (Virtual Host Controller Interface) driver
+    On one host, the VHCI (Virtual Host Controller Interface) driver
     is implemented as a USB host controller driver. The VHCI driver
     emulates a real USB host controller interface for virtual
     attachment/detachment, enumeration and initialization of remote USB
     devices. It encapsulates USB request blocks and then transmits USB/IP
-    packets to remote server hosts. In a server host, the Stub driver is
+    packets to a remote host. On the other host, the Stub driver is
     implemented as a USB per-device driver. The Stub driver decapsulates
     USB/IP packets into USB requests and then submit them to real USB
     devices. 
@@ -47,9 +47,27 @@ Overview
     The detail is described in an academic paper.
 
 
+Mode of operation
+    There are two ways, USBIP can be used.
+    
+    1. Import devices from a remote machine to your machine.
+       This can be usefull, if you need to access a device, e.g. storage,
+       cd-burner, or camera, that is attached to a central machine.
+
+    2. Automatically export devices plugged into your machine to a remote
+       server.
+       This is usefull in Thin Client environments, or if you are using remote
+       Desktop solutions like FreeNX, vnc, or ssh from a workstation.
+
+
 Compile & Install
     USB/IP needs both kernel drivers and userland utilities.
-    See ./{drivers, src}/README.
+
+    The kernel modules are in the drivers/ subdirectory.
+    See drivers/README for details.
+
+    The userspace applications are in the src/ subdirectory.
+    See src/README for details
 
 
 FAQ
@@ -96,13 +114,22 @@ RSS feeds (e.g., the latest file releases)
     http://sourceforge.net/export/rss2_project.php?group_id=122798
 
 
+We would like to hear from you!
+    If you use usbip, we would like you to tell us. It does not matter, if you
+    use it regularly, or just took a peek at it. Please write a mail to the
+    usbip mailinglist, or directly to us (see below).
+
+
 Contact
     Bug reports, feature requests, and your comments are welcome.
-    Please use the above forums and the mailing list, or contact me.
+    Please use the above forums and the mailing list, or contact us.
 
     usbip-devel _at_ lists.sourceforge.net (Recommended)
 
     Takahiro Hirofuchi <hirofuchi _at_ users.sourceforge.net>
+
+    University of Freiburg
+    Robert Leibl <robertleibl _at_ users.sourceforge.net>
 
 
 License
