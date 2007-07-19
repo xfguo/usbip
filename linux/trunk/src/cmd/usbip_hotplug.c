@@ -358,14 +358,14 @@ int scan_interfaces(struct current_device *dev) {
 				logwarn("could not open %s: %s", ifpath, strerror(errno));
 			}
 
-			ret = fscanf(f, "%d", &class );
+			ret = fscanf(f, "%x", &class );
 			if( ret != 1 ) {
 				logwarn("error reading value from bInterfaceClass");
 				class = 0;
 			}
 			fclose(f);
 
-			printf( "found interface of class %d\n", class );
+			printf( "found interface of class 0x%x\n", class );
 
 			add_if_to_current(dev, class);
 		}
@@ -386,7 +386,7 @@ int add_if_to_current(struct current_device *dev, int class) {
 
 	if( dev->ifs == NULL ) {
 		dev->ifs = item;
-		logmsg("added class '%d' as first item", class);
+		logmsg("added class '0x%x' as first item", class);
 		return 0;
 	}
 
@@ -401,7 +401,7 @@ int add_if_to_current(struct current_device *dev, int class) {
 	}
 
 	current->next = item;
-	logmsg("added class '%d' at end of list", class);
+	logmsg("added class '0x%x' at end of list", class);
 
 	return 0;
 }
