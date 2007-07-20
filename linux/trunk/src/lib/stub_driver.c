@@ -30,7 +30,7 @@ static struct sysfs_driver *open_sysfs_stub_driver(void)
 
 	stub_driver = sysfs_open_driver_path(stub_driver_path);
 	if (!stub_driver) {
-		err("stub.ko must be loaded");
+		err("usbip_common_mod.ko and usbip.ko must be loaded");
 		return NULL;
 	}
 

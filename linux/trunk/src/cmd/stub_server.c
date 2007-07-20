@@ -541,7 +541,8 @@ int main(int argc, char *argv[])
 				daemonize = TRUE;
 				break;
 			case '?':
-				break;
+				show_help();
+				exit(EXIT_FAILURE);
 			default:
 				err("getopt");
 		}
