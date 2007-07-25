@@ -56,7 +56,7 @@ static int modify_match_busid(char *busid, int add)
 
 	/* BUS_IS_SIZE includes NULL termination? */
 	if (strnlen(busid, BUS_ID_SIZE) > BUS_ID_SIZE - 1) {
-		g_message("too long busid");
+		g_warning("too long busid");
 		return -1;
 	}
 
@@ -95,13 +95,13 @@ static int unbind_interface_busid(char *busid)
 
 	fd = open(unbind_path, O_WRONLY);
 	if (fd < 0) {
-		g_debug("opening unbind_path failed: %d", fd);
+		g_warning("opening unbind_path failed: %d", fd);
 		return -1;
 	}
 
 	ret = write(fd, busid, strnlen(busid, BUS_ID_SIZE));
 	if (ret < 0) {
-		g_debug("write to unbind_path failed: %d", ret);
+		g_warning("write to unbind_path failed: %d", ret);
 		close(fd);
 		return -1;
 	}
@@ -169,7 +169,7 @@ static int unbind(char *busid)
 	devclass  = read_bDeviceClass(busid);
 
 	if (configvalue < 0 || ninterface < 0 || devclass < 0) {
-		g_debug("read config and ninf value, removed?");
+		g_warning("read config and ninf value, removed?");
 		return -1;
 	}
 
@@ -199,7 +199,7 @@ static int unbind(char *busid)
 		/* unbinding */
 		ret = unbind_interface(busid, configvalue, i);
 		if (ret < 0) {
-			g_message("unbind driver at %s:%d.%d failed",
+			g_warning("unbind driver at %s:%d.%d failed",
 					busid, configvalue, i);
 			failed = 1;
 		}
@@ -223,7 +223,7 @@ static int bind_to_usbip(char *busid)
 	ninterface  = read_bNumInterfaces(busid);
 
 	if (configvalue < 0 || ninterface < 0) {
-		g_debug("read config and ninf value, removed?");
+		g_warning("read config and ninf value, removed?");
 		return -1;
 	}
 
@@ -232,7 +232,7 @@ static int bind_to_usbip(char *busid)
 
 		ret = bind_interface(busid, configvalue, i, "usbip");
 		if (ret < 0) {
-			g_message("bind usbip at %s:%d.%d, failed",
+			g_warning("bind usbip at %s:%d.%d, failed",
 					busid, configvalue, i);
 			failed = 1;
 			/* need to contine binding at other interfaces */
@@ -252,19 +252,19 @@ static int use_device_by_usbip(char *busid)
 
 	ret = unbind(busid);
 	if (ret < 0) {
-		g_debug("unbind drivers of %s, failed", busid);
+		g_warning("unbind drivers of %s, failed", busid);
 		return -1;
 	}
 
 	ret = modify_match_busid(busid, 1);
 	if (ret < 0) {
-		g_message("add %s to match_busid, failed", busid);
+		g_warning("add %s to match_busid, failed", busid);
 		return -1;
 	}
 
 	ret = bind_to_usbip(busid);
 	if (ret < 0) {
-		g_message("bind usbip to %s, failed", busid);
+		g_warning("bind usbip to %s, failed", busid);
 		modify_match_busid(busid, 0);
 		return -1;
 	}
@@ -284,19 +284,19 @@ static int use_device_by_other(char *busid)
 	/* read and write the same config value to kick probing */
 	config = read_bConfigurationValue(busid);
 	if (config < 0) {
-		g_message("read bConfigurationValue of %s, failed", busid);
+		g_warning("read bConfigurationValue of %s, failed", busid);
 		return -1;
 	}
 
 	ret = modify_match_busid(busid, 0);
 	if (ret < 0) {
-		g_debug("del %s to match_busid, failed", busid);
+		g_warning("del %s to match_busid, failed", busid);
 		return -1;
 	}
 
 	ret = write_bConfigurationValue(busid, config);
 	if (ret < 0) {
-		g_message("read bConfigurationValue of %s, failed", busid);
+		g_warning("read bConfigurationValue of %s, failed", busid);
 		return -1;
 	}
 
