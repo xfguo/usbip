@@ -517,6 +517,8 @@ int main(int argc, char *argv[])
 	usbip_use_stderr = 1;
 	usbip_use_syslog = 0;
 
+	if (geteuid() != 0)
+		g_warning("running non-root?");
 
 	for (;;) {
 		int c;
