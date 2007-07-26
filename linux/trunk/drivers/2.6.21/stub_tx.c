@@ -122,10 +122,10 @@ static inline void setup_base_pdu(struct usbip_header_basic *base,
 		__u32 command, __u32 seqnum)
 {
 	base->command = command;
-	base->busnum  = 0;
-	base->devnum  = 0;
 	base->seqnum  = seqnum;
-	base->pipe    = 0;
+	base->devid   = 0;
+	base->ep      = 0;
+	base->direction   = 0;
 }
 
 static void setup_ret_submit_pdu(struct usbip_header *rpdu, struct urb *urb)

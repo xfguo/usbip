@@ -837,9 +837,8 @@ static void vhci_device_reset(struct usbip_device *ud)
 
 	spin_lock(&ud->lock);
 
-	vdev->busnum = 0;
-	vdev->devnum = 0;
 	vdev->speed  = 0;
+	vdev->devid  = 0;
 
 	ud->tcp_socket = NULL;
 

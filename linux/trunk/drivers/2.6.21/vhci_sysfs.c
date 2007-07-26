@@ -69,8 +69,8 @@ static ssize_t show_status(struct device *dev, struct device_attribute *attr,
 		out += sprintf(out, "%03u %03u ", i, vdev->ud.status);
 
 		if (vdev->ud.status == VDEV_ST_USED) {
-			out += sprintf(out, "%03u %03u %03u ",
-					vdev->speed, vdev->busnum, vdev->devnum);
+			out += sprintf(out, "%03u %08x ",
+					vdev->speed, vdev->devid);
 			out += sprintf(out, "%16p ", vdev->ud.tcp_socket);
 			out += sprintf(out, "%s", vdev->udev->dev.bus_id);
 
@@ -156,18 +156,11 @@ static DEVICE_ATTR(detach, S_IWUSR, NULL, store_detach);
 
 /* Sysfs entry to establish a virtual connection */
 
-static int valid_args(__u32 rhport, __u32 busnum, __u32 devnum,
-		enum usb_device_speed speed)
+static int valid_args(__u32 rhport, enum usb_device_speed speed)
 {
 	/* check rhport */
 	if ((rhport < 0) || (rhport >= VHCI_NPORTS)) {
 		uerr("port %u\n", rhport);
-		return -EINVAL;
-	}
-
-	/* check busnum & devnum */
-	if ((busnum <= 0) || (busnum >= 128) || (devnum <= 0) || (devnum >= 128)) {
-		uerr("busnum %u devnum %u\n", busnum, devnum);
 		return -EINVAL;
 	}
 
@@ -193,8 +186,8 @@ static int valid_args(__u32 rhport, __u32 busnum, __u32 devnum,
  * information into this sysfs file.
  *
  * A remote device is virtually attached to the root-hub port of @rhport with
- * @speed. @busnum and @devnum are used to convert URBs between a client host
- * and a server host.
+ * @speed. @devid is embedded into a request to specify the remote device in a
+ * server host.
  *
  * write() returns 0 on success, else negative errno.
  */
@@ -204,24 +197,23 @@ static ssize_t store_attach(struct device *dev, struct device_attribute *attr,
 	struct vhci_device *vdev;
 	struct socket *socket;
 	int sockfd = 0;
-	__u32 rhport=0, busnum=0, devnum=0, speed=0;
+	__u32 rhport = 0, devid = 0, speed = 0;
 
 
 	/*
 	 * @rhport: port number of vhci_hcd
 	 * @sockfd: socket descriptor of an established TCP connection
-	 * @busnum: usb bus number in a remote host
-	 * @devnum: usb device number in a remote host
+	 * @devid: unique device identifier in a remote host
 	 * @speed: usb device speed in a remote host
 	 */
-	sscanf(buf, "%u %u %u %u %u", &rhport, &sockfd, &busnum, &devnum, &speed);
+	sscanf(buf, "%u %u %u %u", &rhport, &sockfd, &devid, &speed);
 
-	dbg_vhci_sysfs("rhport(%u) sockfd(%u) busnum(%u) devnum(%u) speed(%u)\n",
-			rhport, sockfd, busnum, devnum, speed);
+	dbg_vhci_sysfs("rhport(%u) sockfd(%u) devid(%u) speed(%u)\n",
+			rhport, sockfd, devid, speed);
 
 
 	/* check received parameters */
-	if (valid_args(rhport, busnum, devnum, speed) < 0)
+	if (valid_args(rhport, speed) < 0)
 		return -EINVAL;
 
 	/* check sockfd */
@@ -251,11 +243,10 @@ static ssize_t store_attach(struct device *dev, struct device_attribute *attr,
 		return -EINVAL;
 	}
 
-	uinfo("rhport(%u) sockfd(%d) busnum(%u) devnum(%u) speed(%u)\n",
-			rhport, sockfd, busnum, devnum, speed);
+	uinfo("rhport(%u) sockfd(%d) devid(%u) speed(%u)\n",
+			rhport, sockfd, devid, speed);
 
-	vdev->busnum        = busnum;
-	vdev->devnum        = devnum;
+	vdev->devid         = devid;
 	vdev->speed         = speed;
 	vdev->ud.tcp_socket = socket;
 	vdev->ud.status     = VDEV_ST_NOTASSIGNED;

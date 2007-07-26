@@ -157,10 +157,17 @@ struct usbip_header_basic {
 #define USBIP_RET_UNLINK	0x0004
 	__u32 command;
 
-	__u32 busnum;
-	__u32 devnum;
 	__u32 seqnum; /* seaquencial number which identifies URBs */
-	__u32 pipe;
+
+	/* devid will be used to specify a remote USB device uniquely instead
+	 * of busnum and devnum. In the case of Linux stub_driver, this value
+	 * is ((busnum << 16) | devnum) */
+	__u32 devid;  
+
+#define USBIP_DIR_OUT	0
+#define USBIP_DIR_IN 	1
+	__u32 direction;
+	__u32 ep;     /* endpoint number */
 } __attribute__ ((packed));
 
 /*

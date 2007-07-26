@@ -24,42 +24,22 @@
 #include "vhci.h"
 
 
-/* @p: pipe whose dev number modified
- * @pdev: new devive number */
-static unsigned long tweak_pipe_devnum(__u32 p, __u8 pdev)
-{
-	__u32 oldp;
-	oldp = p;
-
-	if (pdev > 0x7f)
-		uerr("invalid devnum %u\n", pdev);
-
-	pdev &= 0x7f;    // 0XXX XXXX  confirm MSB be 0
-
-	p &= 0xffff80ff; /* clear p's devnum */
-
-	p |= (pdev << 8);
-
-	dbg_vhci_tx("return new pipe, devnum %u -> %u \n",
-		    usb_pipedevice(oldp), usb_pipedevice(p));
-	dbg_vhci_tx("           pipe %08x -> %08x\n", oldp, p);
-
-	return p;
-}
-
 static void setup_cmd_submit_pdu(struct usbip_header *pdup,  struct urb *urb)
 {
 	struct vhci_priv *priv = ((struct vhci_priv *)urb->hcpriv);
 	struct vhci_device *vdev = priv->vdev;
 
-	dbg_vhci_tx("URB, local devnum(%u), busnum(%u) devnum(%u)\n",
-	            usb_pipedevice(urb->pipe), vdev->busnum, vdev->devnum);
+	dbg_vhci_tx("URB, local devnum %u, remote devid %u\n",
+	            usb_pipedevice(urb->pipe), vdev->devid);
 
 	pdup->base.command = USBIP_CMD_SUBMIT;
-	pdup->base.busnum  = vdev->busnum;
-	pdup->base.devnum  = vdev->devnum;
 	pdup->base.seqnum  = priv->seqnum;
-	pdup->base.pipe	   = tweak_pipe_devnum(urb->pipe, vdev->devnum);
+	pdup->base.devid   = vdev->devid;
+	if (usb_pipein(urb->pipe))
+		pdup->base.direction = USBIP_DIR_IN;
+	else
+		pdup->base.direction = USBIP_DIR_OUT;
+	pdup->base.ep      = usb_pipeendpoint(urb->pipe);
 
 	usbip_pack_pdu(pdup, urb, USBIP_CMD_SUBMIT, 1);
 
@@ -207,10 +187,9 @@ static int vhci_send_cmd_unlink(struct vhci_device *vdev)
 
 		/* 1. setup usbip_header */
 		pdu_header.base.command = USBIP_CMD_UNLINK;
-		pdu_header.base.busnum  = vdev->busnum;
-		pdu_header.base.devnum  = vdev->devnum;
 		pdu_header.base.seqnum  = unlink->seqnum;
-		pdu_header.base.pipe	= 0;
+		pdu_header.base.devid	= vdev->devid;
+		pdu_header.base.ep	= 0;
 		pdu_header.u.cmd_unlink.seqnum = unlink->unlink_seqnum;
 
 		usbip_header_correct_endian(&pdu_header, 1);

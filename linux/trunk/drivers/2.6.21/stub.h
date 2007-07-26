@@ -32,6 +32,7 @@ struct stub_device {
 	struct list_head list;
 
 	struct usbip_device ud;
+	__u32 devid;
 
 	/*
 	 * stub_priv preserves private data of each urb.

@@ -27,9 +27,11 @@
 struct vhci_device {
 	struct usb_device *udev;
 
-	/* busnum and devnum of a remote device */
-	__u32 busnum;
-	__u32 devnum;
+	/*
+	 * devid specifies a remote usb device uniquely instead
+	 * of combination of busnum and devnum.
+	 */
+	__u32 devid;
 
 	/* speed of a remote device */
 	enum usb_device_speed speed;

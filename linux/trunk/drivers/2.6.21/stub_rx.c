@@ -249,10 +249,7 @@ static int valid_request(struct stub_device *sdev, struct usbip_header *pdu)
 {
 	struct usbip_device *ud = &sdev->ud;
 
-	int bus = interface_to_busnum(sdev->interface);
-	int dev = interface_to_devnum(sdev->interface);
-
-	if (pdu->base.busnum == bus && pdu->base.devnum == dev) {
+	if (pdu->base.devid == sdev->devid) {
 		spin_lock(&ud->lock);
 		if (ud->status == SDEV_ST_USED) {
 			/* A request is valid. */
@@ -298,11 +295,66 @@ static struct stub_priv *stub_priv_alloc(struct stub_device *sdev,
 	return priv;
 }
 
+
+static int get_pipe(struct stub_device *sdev, int epnum, int dir)
+{
+	struct usb_device *udev = interface_to_usbdev(sdev->interface);
+
+	struct usb_host_interface *iface;
+	struct usb_endpoint_descriptor *epd;
+
+	iface = sdev->interface->cur_altsetting;
+	epd   = &iface->endpoint[epnum].desc;
+
+	/* epnum 0 is always control */
+	if (epnum == 0) {
+		if (dir == USBIP_DIR_OUT)
+			return usb_sndctrlpipe(udev, 0);
+		else
+			return usb_rcvctrlpipe(udev, 0);
+	}
+
+	if (usb_endpoint_xfer_control(epd)) {
+		if (dir == USBIP_DIR_OUT)
+			return usb_sndctrlpipe(udev, epnum);
+		else
+			return usb_rcvctrlpipe(udev, epnum);
+	}
+
+	if (usb_endpoint_xfer_bulk(epd)) {
+		if (dir == USBIP_DIR_OUT)
+			return usb_sndbulkpipe(udev, epnum);
+		else
+			return usb_rcvbulkpipe(udev, epnum);
+	}
+
+	if (usb_endpoint_xfer_int(epd)) {
+		if (dir == USBIP_DIR_OUT)
+			return usb_sndintpipe(udev, epnum);
+		else
+			return usb_rcvintpipe(udev, epnum);
+	}
+
+	if (usb_endpoint_xfer_isoc(epd)) {
+		if (dir == USBIP_DIR_OUT)
+			return usb_sndisocpipe(udev, epnum);
+		else
+			return usb_rcvisocpipe(udev, epnum);
+	}
+
+	/* NOT REACHED */
+	uerr("get pipe, epnum %d\n", epnum);
+	return 0;
+}
+
+
 static void stub_recv_cmd_submit(struct stub_device *sdev, struct usbip_header *pdu)
 {
 	int ret;
 	struct stub_priv *priv;
 	struct usbip_device *ud = &sdev->ud;
+	struct usb_device *udev = interface_to_usbdev(sdev->interface);
+	int pipe = get_pipe(sdev, pdu->base.ep, pdu->base.direction);
 
 
 	priv = stub_priv_alloc(sdev, pdu);
@@ -310,7 +362,7 @@ static void stub_recv_cmd_submit(struct stub_device *sdev, struct usbip_header *
 		return;
 
 	/* setup a urb */
-	if (usb_pipeisoc(pdu->base.pipe))
+	if (usb_pipeisoc(pipe))
 		priv->urb = usb_alloc_urb(pdu->u.cmd_submit.number_of_packets, GFP_KERNEL);
 	else
 		priv->urb = usb_alloc_urb(0, GFP_KERNEL);
@@ -343,8 +395,8 @@ static void stub_recv_cmd_submit(struct stub_device *sdev, struct usbip_header *
 
 	/* set other members from the base header of pdu */
 	priv->urb->context                = (void *) priv;
-	priv->urb->dev                    = interface_to_usbdev(sdev->interface);
-	priv->urb->pipe                   = pdu->base.pipe;
+	priv->urb->dev                    = udev;
+	priv->urb->pipe                   = pipe;
 	priv->urb->complete               = stub_complete;
 
 	usbip_pack_pdu(pdu, priv->urb, USBIP_CMD_SUBMIT, 0);

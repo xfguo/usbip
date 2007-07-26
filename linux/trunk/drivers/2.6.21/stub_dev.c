@@ -318,6 +318,8 @@ static void stub_device_unusable(struct usbip_device *ud)
 static struct stub_device * stub_device_alloc(struct usb_interface *interface)
 {
 	struct stub_device *sdev;
+	int busnum = interface_to_busnum(interface);
+	int devnum = interface_to_devnum(interface);
 
 	udbg("allocating stub device");
 	/* yes, it's a new device */
@@ -328,6 +330,7 @@ static struct stub_device * stub_device_alloc(struct usb_interface *interface)
 	}
 
 	sdev->interface = interface;
+	sdev->devid     = (busnum << 16) | devnum;
 
 	usbip_task_init(&sdev->ud.tcp_rx, "stub_rx", stub_rx_loop);
 	usbip_task_init(&sdev->ud.tcp_tx, "stub_tx", stub_tx_loop);

@@ -337,14 +337,12 @@ EXPORT_SYMBOL(usbip_dump_urb);
 
 void usbip_dump_header(struct usbip_header *pdu)
 {
-	udbg("BASE: cmd %u bus %u dev %u seq %u pipe %04x\n",
+	udbg("BASE: cmd %u seq %u devid %u dir %u ep %u\n",
 			pdu->base.command,
-			pdu->base.busnum,
-			pdu->base.devnum,
 			pdu->base.seqnum,
-			pdu->base.pipe);
-
-	usbip_dump_pipe(pdu->base.pipe);
+			pdu->base.devid,
+			pdu->base.direction,
+			pdu->base.ep);
 
 	switch(pdu->base.command) {
 		case USBIP_CMD_SUBMIT:
@@ -709,16 +707,16 @@ static void correct_endian_basic(struct usbip_header_basic *base, int send)
 {
 	if (send) {
 		base->command	= cpu_to_be32(base->command);
-		base->busnum	= cpu_to_be32(base->busnum);
-		base->devnum	= cpu_to_be32(base->devnum);
 		base->seqnum	= cpu_to_be32(base->seqnum);
-		base->pipe	= cpu_to_be32(base->pipe);
+		base->devid	= cpu_to_be32(base->devid);
+		base->direction	= cpu_to_be32(base->direction);
+		base->ep	= cpu_to_be32(base->ep);
 	} else {
 		base->command	= be32_to_cpu(base->command);
-		base->busnum	= be32_to_cpu(base->busnum);
-		base->devnum	= be32_to_cpu(base->devnum);
 		base->seqnum	= be32_to_cpu(base->seqnum);
-		base->pipe	= be32_to_cpu(base->pipe);
+		base->devid	= be32_to_cpu(base->devid);
+		base->direction	= be32_to_cpu(base->direction);
+		base->ep	= be32_to_cpu(base->ep);
 	}
 }
 

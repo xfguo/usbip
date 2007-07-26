@@ -60,22 +60,22 @@ static int parse_status(char *value)
 	c = strchr(value, '\n') + 1;
 
 	while (*c != '\0') {
-		int port, status, speed, busnum, devnum;
+		int port, status, speed, devid;
 		unsigned long socket;
 		char lbusid[SYSFS_BUS_ID_SIZE];
 
-		ret = sscanf(c, "%d %d %d %d %d %lx %s\n",
-				&port, &status, &speed, &busnum,
-				&devnum, &socket, lbusid);
+		ret = sscanf(c, "%d %d %d %x %lx %s\n",
+				&port, &status, &speed,
+				&devid, &socket, lbusid);
 
 		if (ret < 5) {
 			err("scanf %d", ret);
 			BUG();
 		}
 
-		dbg("port %d status %d speed %d busnum %d devnum %d",
-				port, status, speed, busnum, devnum);
-		dbg("socket %lu lbusid %s", socket, lbusid);
+		dbg("port %d status %d speed %d devid %x",
+				port, status, speed, devid);
+		dbg("socket %lx lbusid %s", socket, lbusid);
 
 
 		/* if a device is connected, look at it */
@@ -84,8 +84,8 @@ static int parse_status(char *value)
 
 			idev->port	= port;
 			idev->status	= status;
-			idev->busnum	= busnum;
-			idev->devnum	= devnum;
+			idev->busnum	= (devid >> 16);
+			idev->devnum	= (devid & 0x0000ffff);
 
 			idev->cdev_list = dlist_new(sizeof(struct class_device));
 			if (!idev->cdev_list) {
@@ -435,12 +435,19 @@ int usbip_vhci_get_free_port(void)
 }
 
 
+static unsigned long get_devid(uint8_t busnum, uint8_t devnum)
+{
+	return (busnum << 16) | devnum;
+}
+
+/* will change this API soon */
 int usbip_vhci_attach_device(uint8_t port, int sockfd, uint8_t busnum,
 		uint8_t devnum, uint32_t speed)
 {
 	struct sysfs_attribute *attr_attach;
 	char buff[200]; /* what size should be ? */
 	int ret;
+	int devid = get_devid(busnum, devnum);
 
 	attr_attach = sysfs_get_device_attr(vhci_driver->hc_device, "attach");
 	if (!attr_attach) {
@@ -448,8 +455,8 @@ int usbip_vhci_attach_device(uint8_t port, int sockfd, uint8_t busnum,
 		return -1;
 	}
 
-	snprintf(buff, sizeof(buff), "%u %u %u %u %u",
-			port, sockfd, busnum, devnum, speed);
+	snprintf(buff, sizeof(buff), "%u %u %u %u",
+			port, sockfd, devid, speed);
 	dbg("writing: %s", buff);
 
 	ret = sysfs_write_attribute(attr_attach, buff, strlen(buff));
