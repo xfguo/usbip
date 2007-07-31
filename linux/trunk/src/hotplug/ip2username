@@ -1,0 +1,51 @@
+#!/usr/bin/perl -w
+#
+# ip2username
+#
+#
+# Copyright (C) 2007 by Robert Leibl <robert.leibl@gmail.com>
+#
+# $Id$
+#
+# This scipt prints the username of the user currently logged in from a given
+# ip address.
+#
+# The script uses the 'last' program to search the users currently logged into
+# the system.
+
+use strict;
+use warnings;
+
+# give the path to the 'last' program here
+#
+# parameters
+# -i displays IP number in numbers and dots notation
+# -n display 100 lines (not more)
+my $last      = '/usr/bin/last';
+my $last_args = ' -i -n 100';
+
+# if no user can be found, output this user
+my $default_user = 'root';
+
+
+#
+# MAIN
+#
+my $ip = $ARGV[0];
+if( not $ip ) {
+	die "usage: ip2username <ip_address>";
+}
+
+my @lines = split /\n/, qx/$last $last_args/;
+
+my $user = $default_user;
+foreach (@lines) {
+	next unless( /still logged in/);
+	next unless( /$ip/ );
+	/^(\w+?)\s.*/;
+	$user = $1;
+	last;
+}
+print $user;
+
+__END__
