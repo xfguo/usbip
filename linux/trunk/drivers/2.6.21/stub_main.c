@@ -263,7 +263,11 @@ static int __init usb_stub_init(void)
 	memset(busid_table, 0, sizeof(busid_table));
 	spin_lock_init(&busid_table_lock);
 
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,18)
+	ret = driver_create_file(&stub_driver.driver, &driver_attr_match_busid);
+#else
 	ret = driver_create_file(&stub_driver.drvwrap.driver, &driver_attr_match_busid);
+#endif /* if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,18) */
 
 	if (ret) {
 		uerr("create driver sysfs\n");
@@ -277,7 +281,11 @@ static void __exit usb_stub_exit(void)
 {
 	udbg("enter\n");
 
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,18)
+	driver_remove_file(&stub_driver.driver, &driver_attr_match_busid);
+#else
 	driver_remove_file(&stub_driver.drvwrap.driver, &driver_attr_match_busid);
+#endif /* LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,18) */
 
 	/*
 	 * deregister() calls stub_disconnect() for all devices. Device

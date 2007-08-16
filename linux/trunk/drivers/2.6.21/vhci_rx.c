@@ -105,7 +105,11 @@ static void vhci_recv_ret_submit(struct vhci_device *vdev, struct usbip_header *
 	dbg_vhci_rx("now giveback urb %p\n", urb);
 
 
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,18)
+	usb_hcd_giveback_urb(vhci_to_hcd(the_controller), urb, NULL);
+#else
 	usb_hcd_giveback_urb(vhci_to_hcd(the_controller), urb);
+#endif /* LINUX_VERSION_CODE <= KERNEL_VERSION(2.6.18) */
 
 
 	dbg_vhci_rx("Leave\n");
