@@ -23,14 +23,75 @@
 #include "usbip_common.h"
 #include "vhci.h"
 
+#include <linux/in.h>
 
 /* TODO: refine locking ?*/
 
 
 /*-------------------------------------------------------------------------*/
 
-/* Sysfs entry to show port status */
 
+static int print_client_ip(struct device *dev,
+			   struct device_attribute *attr,
+			   char *out)
+{
+	int i;
+	int ret;
+	int size;
+	__u32 ip;
+	char *s = out;
+
+	if (!the_controller || !out) {
+		if(!the_controller) 
+			err("'the_controller' is undefined");
+		if(!out)
+			err("'out' is undefined");
+
+		//BUG();
+		return -1;
+	}
+
+	spin_lock(&the_controller->lock);
+
+	for (i=0; i < VHCI_NPORTS; i++) {
+		struct socket *sock;
+		struct sockaddr_in inaddr;
+		struct vhci_device *vdev = port_to_vdev(i);
+
+		spin_lock(vdev->ud.lock);
+		if( vdev->ud.status != VDEV_ST_USED ) {
+			out += snprintf(out, 15, "%d -\n", i );
+			spin_unlock(vdev->ud.lock);
+			continue;
+		}
+
+		sock = vdev->ud.tcp_socket;
+		size = sizeof(struct sockaddr);
+		ret = sock->ops->getname(sock,
+				(struct sockaddr *)&inaddr,
+				&size, 
+				0);
+		if( ! ret ) {
+			spin_unlock(vdev->ud.lock);
+			spin_unlock(&the_controller->lock);
+			return -ENODEV;
+		}
+
+		ip = ntohl(inaddr.sin_addr.s_addr);
+		out += snprintf( out, 15, "%d %u\n", i, ip );
+		spin_unlock(vdev->ud.lock);
+	}
+
+	spin_unlock(&the_controller->lock);
+
+	return out-s;
+}
+
+static DEVICE_ATTR(client_ip, S_IRUGO, print_client_ip, NULL );
+
+
+
+/* Sysfs entry to show port status */
 static ssize_t show_status(struct device *dev, struct device_attribute *attr,
 		char *out)
 {
@@ -277,6 +338,7 @@ static struct attribute *dev_attrs[] = {
 	&dev_attr_detach.attr,
 	&dev_attr_attach.attr,
 	&dev_attr_usbip_debug.attr,
+	&dev_attr_client_ip.attr,
 	NULL,
 };
 

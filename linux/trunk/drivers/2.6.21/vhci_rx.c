@@ -105,7 +105,6 @@ static void vhci_recv_ret_submit(struct vhci_device *vdev, struct usbip_header *
 	dbg_vhci_rx("now giveback urb %p\n", urb);
 
 
-
 	usb_hcd_giveback_urb(vhci_to_hcd(the_controller), urb);
 
 

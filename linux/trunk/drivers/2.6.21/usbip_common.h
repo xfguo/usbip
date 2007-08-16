@@ -24,6 +24,7 @@
 #define  __VHCI_COMMON_H
 
 
+#include <linux/version.h>
 #include <linux/usb.h>
 #include <net/sock.h>
 #include <asm/byteorder.h>

@@ -264,6 +264,7 @@ static int __init usb_stub_init(void)
 	spin_lock_init(&busid_table_lock);
 
 	ret = driver_create_file(&stub_driver.drvwrap.driver, &driver_attr_match_busid);
+
 	if (ret) {
 		uerr("create driver sysfs\n");
 		return ret;
