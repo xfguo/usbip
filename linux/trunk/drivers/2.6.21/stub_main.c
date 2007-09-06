@@ -244,8 +244,13 @@ static int __init usb_stub_init(void)
 {
 	int ret;
 
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,22)
 	stub_priv_cache = kmem_cache_create("stub_priv", sizeof(struct stub_priv),
 			0, SLAB_HWCACHE_ALIGN, NULL, NULL);
+#else
+	stub_priv_cache = kmem_cache_create("stub_priv", sizeof(struct stub_priv),
+			0, SLAB_HWCACHE_ALIGN, NULL);
+#endif
 	if (!stub_priv_cache) {
 		uerr("create stub_priv_cache\n");
 		return -ENOMEM;

@@ -58,10 +58,10 @@ static int print_client_ip(struct device *dev,
 		struct sockaddr_in inaddr;
 		struct vhci_device *vdev = port_to_vdev(i);
 
-		spin_lock(vdev->ud.lock);
+		spin_lock(&vdev->ud.lock);
 		if( vdev->ud.status != VDEV_ST_USED ) {
 			out += snprintf(out, 15, "%d -\n", i );
-			spin_unlock(vdev->ud.lock);
+			spin_unlock(&vdev->ud.lock);
 			continue;
 		}
 
@@ -72,14 +72,14 @@ static int print_client_ip(struct device *dev,
 				&size, 
 				0);
 		if( ! ret ) {
-			spin_unlock(vdev->ud.lock);
+			spin_unlock(&vdev->ud.lock);
 			spin_unlock(&the_controller->lock);
 			return -ENODEV;
 		}
 
 		ip = ntohl(inaddr.sin_addr.s_addr);
 		out += snprintf( out, 15, "%d %u\n", i, ip );
-		spin_unlock(vdev->ud.lock);
+		spin_unlock(&vdev->ud.lock);
 	}
 
 	spin_unlock(&the_controller->lock);
