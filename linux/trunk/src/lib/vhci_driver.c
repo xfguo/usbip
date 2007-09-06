@@ -84,6 +84,9 @@ static int parse_status(char *value)
 
 			idev->port	= port;
 			idev->status	= status;
+
+			idev->devid	= devid;
+
 			idev->busnum	= (devid >> 16);
 			idev->devnum	= (devid & 0x0000ffff);
 
@@ -434,20 +437,11 @@ int usbip_vhci_get_free_port(void)
 	return -1;
 }
 
-
-static unsigned long get_devid(uint8_t busnum, uint8_t devnum)
-{
-	return (busnum << 16) | devnum;
-}
-
-/* will change this API soon */
-int usbip_vhci_attach_device(uint8_t port, int sockfd, uint8_t busnum,
-		uint8_t devnum, uint32_t speed)
-{
+int usbip_vhci_attach_device2(uint8_t port, int sockfd, uint32_t devid,
+		uint32_t speed) {
 	struct sysfs_attribute *attr_attach;
 	char buff[200]; /* what size should be ? */
 	int ret;
-	int devid = get_devid(busnum, devnum);
 
 	attr_attach = sysfs_get_device_attr(vhci_driver->hc_device, "attach");
 	if (!attr_attach) {
@@ -468,6 +462,20 @@ int usbip_vhci_attach_device(uint8_t port, int sockfd, uint8_t busnum,
 	info("port %d attached", port);
 
 	return 0;
+}
+
+static unsigned long get_devid(uint8_t busnum, uint8_t devnum)
+{
+	return (busnum << 16) | devnum;
+}
+
+/* will be removed */
+int usbip_vhci_attach_device(uint8_t port, int sockfd, uint8_t busnum,
+		uint8_t devnum, uint32_t speed)
+{
+	int devid = get_devid(busnum, devnum);
+
+	return usbip_vhci_attach_device2(port, sockfd, devid, speed);
 }
 
 int usbip_vhci_detach_device(uint8_t port)

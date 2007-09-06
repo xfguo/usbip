@@ -149,8 +149,9 @@ void usbip_vhci_imported_device_dump(struct usbip_imported_device *idev)
 
 	info("       %s",  product_name);
 
-	info("%10s -> usbip://%s:%s/%s  (remote bus/dev %03d/%03d)",
+	info("%10s -> usbip://%s:%s/%s  (remote devid %08x (bus/dev %03d/%03d))",
 			idev->udev.busid, host, serv, remote_busid,
+			idev->devid,
 			idev->busnum, idev->devnum);
 
 	for (int i=0; i < idev->udev.bNumInterfaces; i++) {
