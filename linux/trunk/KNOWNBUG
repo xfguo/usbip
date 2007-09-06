@@ -1,0 +1,8 @@
+
+The current implementation does not handle device reset correctly.
+The following devices may have a problem about this issue.
+	- USB storage devices with bad sectors
+	- USB V4L devices which upload a firmware and do hardware reset
+		(i.e., WinTV Card?)
+
+http://sourceforge.net/forum/forum.php?thread_id=1784650&forum_id=418507
