@@ -575,6 +575,9 @@ int main(int argc, char *argv[])
 
 	usbip_use_stderr = 1;
 
+	if (geteuid() != 0)
+		g_warning("running non-root?");
+
  	ret = usbip_names_init(USBIDS_FILE);
  	if (ret)
  		err("open usb.ids");

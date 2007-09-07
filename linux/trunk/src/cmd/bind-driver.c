@@ -715,6 +715,9 @@ int main(int argc, char **argv)
 		cmd_hotplug
 	} cmd = cmd_unknown;
 
+	if (geteuid() != 0)
+		g_warning("running non-root?");
+
 	for (;;) {
 		int c;
 		int index = 0;
