@@ -1,8 +1,7 @@
 /*
- * logging.h
+ * $Id$
  *
- *
- * Copyright (C) 2007 by Robert Leibl <robert.leibl@gmail.com>
+ * Copyright (C) 2007 Robert Leibl <robert.leibl@gmail.com>
  * 
  * This program is free software; you can redistribute it and/or 
  * modify it under the terms of the GNU General Public License 

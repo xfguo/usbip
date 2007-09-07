@@ -1,9 +1,9 @@
 /*
- * export_config.c
+ * $Id$
  *
- * Copyright (C) 2007 by Robert Leibl <robert.leibl@gmail.com>
- *
+ * Copyright (C) 2007 Robert Leibl <robert.leibl@gmail.com>
  */
+
 
 #include "hotplug_config.h"
 

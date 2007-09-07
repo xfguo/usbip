@@ -1,4 +1,6 @@
 /*
+ * $Id$
+ *
  * Copyright (C) 2005-2007 Takahiro Hirofuchi
  */
 

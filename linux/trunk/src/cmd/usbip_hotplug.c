@@ -1,8 +1,7 @@
 /*
- * export_device.c
+ * $Id$
  *
- * Copyright (C) 2007 by Robert Leibl <robert.leibl@gmail.com>
- *
+ * Copyright (C) 2007 Robert Leibl <robert.leibl@gmail.com>
  */
 
 #include "usbip_hotplug.h"

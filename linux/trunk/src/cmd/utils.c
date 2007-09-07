@@ -1,3 +1,9 @@
+/*
+ * $Id$
+ *
+ * Copyright (C) 2005-2007 Takahiro Hirofuchi
+ */
+
 #include "utils.h"
 
 int read_integer(char *path)

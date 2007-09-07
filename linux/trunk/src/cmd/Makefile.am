@@ -1,3 +1,5 @@
+# $Id$
+
 bin_PROGRAMS = usbip usbipd bind_driver usbaid
 
 usbip_SOURCES = vhci_attach.c usbip_network.c usbip_network.h
