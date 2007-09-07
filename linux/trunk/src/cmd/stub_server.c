@@ -451,7 +451,7 @@ static void do_standalone_mode(gboolean daemonize)
 
 	n = listen_all_addrinfo(ai_head, lsock);
 	if (n <= 0)
-		err("no socket to listen to");
+		g_error("no socket to listen to");
 
 	for (int i = 0; i < n; i++) {
 		GIOChannel *gio;

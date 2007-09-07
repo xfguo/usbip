@@ -12,6 +12,7 @@
 
 #define _GNU_SOURCE
 #include <getopt.h>
+#include <glib.h>
 
 
 /*
