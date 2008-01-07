@@ -26,6 +26,7 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/module.h>
+#include <linux/net.h>
 
 struct stub_device {
 	struct usb_interface *interface;

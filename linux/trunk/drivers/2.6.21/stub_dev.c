@@ -220,8 +220,11 @@ static void stub_shutdown_connection(struct usbip_device *ud)
 	 */
 	if (ud->tcp_socket) {
 		udbg("shutdown tcp_socket %p\n", ud->tcp_socket);
-		ud->tcp_socket->ops->shutdown(ud->tcp_socket,
-				RCV_SHUTDOWN|SEND_SHUTDOWN);
+		/* 
+		 * a old kernel does not have kernel_sock_shutdown() ?
+		 * ud->tcp_socket->ops->shutdown(ud->tcp_socket, SHUT_RDWR);
+		 */
+		kernel_sock_shutdown(ud->tcp_socket, SHUT_RDWR);
 	}
 
 	/* 1. stop threads */
@@ -382,7 +385,7 @@ static int stub_device_free(struct stub_device *sdev)
  * looks at the usbip's sysfs entries of only the first active interface.
  *
  * TODO: use "struct usb_device_driver" to bind a usb device.
- * However, it seems it is not fully supported in mainline kerenel yet (2.6.19.2).
+ * However, it seems it is not fully supported in mainline kernel yet (2.6.19.2).
  */
 static int stub_probe(struct usb_interface *interface, const struct usb_device_id *id)
 {

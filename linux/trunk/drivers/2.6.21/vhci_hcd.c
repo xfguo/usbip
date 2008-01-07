@@ -38,7 +38,7 @@ MODULE_LICENSE(DRIVER_LICENCE);
  * TODO
  *	- update root hub emulation
  *	- move the emulation code to userland ?
- *		poring to other operating systems
+ *		porting to other operating systems
  *		minimize kernel code
  *	- add suspend/resume code
  *	- clean up everything
