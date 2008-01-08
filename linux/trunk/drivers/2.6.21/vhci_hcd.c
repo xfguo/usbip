@@ -622,7 +622,14 @@ out:
 no_need_xmit:
 
 	spin_unlock_irqrestore(&the_controller->lock, flags);
-	usb_hcd_giveback_urb(vhci_to_hcd(the_controller), urb);
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+		usb_hcd_giveback_urb(vhci_to_hcd(the_controller), urb, urb->status);
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,19)
+		usb_hcd_giveback_urb(vhci_to_hcd(the_controller), urb);
+#else
+		usb_hcd_giveback_urb(vhci_to_hcd(the_controller), urb, NULL);
+#endif /* LINUX_VERSION_CODE > KERNEL_VERSION(2,6,24) */
 
 	return 0;
 }
@@ -750,7 +757,15 @@ static int vhci_urb_dequeue(struct usb_hcd *hcd, struct urb *urb)
 	if (!vdev->ud.tcp_socket) {
 		/* tcp connection is closed */
 		uinfo("vhci_hcd: vhci_urb_dequeue() gives back urb %p\n", urb);
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+		usb_hcd_giveback_urb(vhci_to_hcd(the_controller), urb, urb->status);
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,19)
 		usb_hcd_giveback_urb(vhci_to_hcd(the_controller), urb);
+#else
+		usb_hcd_giveback_urb(vhci_to_hcd(the_controller), urb, NULL);
+#endif /* LINUX_VERSION_CODE > KERNEL_VERSION(2,6,24) */
+
 	}
 
 	dbg_vhci_hc("leave\n");
