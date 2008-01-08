@@ -220,11 +220,12 @@ static void stub_shutdown_connection(struct usbip_device *ud)
 	 */
 	if (ud->tcp_socket) {
 		udbg("shutdown tcp_socket %p\n", ud->tcp_socket);
-		/* 
-		 * a old kernel does not have kernel_sock_shutdown() ?
-		 * ud->tcp_socket->ops->shutdown(ud->tcp_socket, SHUT_RDWR);
-		 */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
+		/* in /usr/include/sys/socket.c, SHUT_RDWR is defined as 2. */
+		ud->tcp_socket->ops->shutdown(ud->tcp_socket, 2);
+#else
 		kernel_sock_shutdown(ud->tcp_socket, SHUT_RDWR);
+#endif
 	}
 
 	/* 1. stop threads */
