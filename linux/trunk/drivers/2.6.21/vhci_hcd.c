@@ -804,8 +804,12 @@ static void vhci_shutdown_connection(struct usbip_device *ud)
 	/* need this? see stub_dev.c */
 	if (ud->tcp_socket) {
 		udbg("shutdown tcp_socket %p\n", ud->tcp_socket);
-		ud->tcp_socket->ops->shutdown(ud->tcp_socket,
-				RCV_SHUTDOWN|SEND_SHUTDOWN);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
+		/* in /usr/include/sys/socket.c, SHUT_RDWR is defined as 2. */
+		ud->tcp_socket->ops->shutdown(ud->tcp_socket, 2);
+#else
+		kernel_sock_shutdown(ud->tcp_socket, SHUT_RDWR);
+#endif
 	}
 
 	usbip_stop_threads(&vdev->ud);

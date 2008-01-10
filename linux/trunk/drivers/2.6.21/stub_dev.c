@@ -317,7 +317,7 @@ static void stub_device_unusable(struct usbip_device *ud)
  * stub_device_alloc - allocate a new stub_device struct
  * @interface: usb_interface of a new device
  *
- * Allocates and initializes a new stub_devce struct.
+ * Allocates and initializes a new stub_device struct.
  */
 static struct stub_device * stub_device_alloc(struct usb_interface *interface)
 {
