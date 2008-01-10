@@ -126,10 +126,7 @@ static int tweak_set_configuration_cmd(struct urb *urb)
 
 	uinfo("set_configuration: devnum %d %d\n", urb->dev->devnum, config);
 
-#if 0
-	return usb_set_configuration(urb->dev, config);
-#endif
-	return 0;
+	return usb_driver_set_configuration(urb->dev, config);
 }
 
 /*
