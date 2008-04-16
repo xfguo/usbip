@@ -581,13 +581,19 @@ static int vhci_urb_enqueue(struct usb_hcd *hcd, struct usb_host_endpoint *ep, s
 				vdev->ud.status = VDEV_ST_USED;
 				spin_unlock(&vdev->ud.lock);
 
-				spin_lock (&urb->lock);
+				#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
+					spin_lock (&urb->lock);
+				#endif
+
 				if (urb->status == -EINPROGRESS) {
 					/* This request is successfully completed. */
 					/* If not -EINPROGRESS, possibly unlinked. */
 					urb->status = 0;
 				}
-				spin_unlock (&urb->lock);
+				
+				#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
+					spin_unlock (&urb->lock);
+				#endif
 
 				goto no_need_xmit;
 
