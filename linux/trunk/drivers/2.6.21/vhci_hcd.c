@@ -573,9 +573,11 @@ static int vhci_urb_enqueue(struct usb_hcd *hcd, struct usb_host_endpoint *ep, s
 		switch (ctrlreq->bRequest) {
 
 			case USB_REQ_SET_ADDRESS:
-				vdev->udev = urb->dev;
-				dbg_vhci_hc("SetAddress Request (%d) to port %d\n",
+				/* set_address may come when a device is reset */
+				uinfo("SetAddress Request (%d) to port %d\n",
 						ctrlreq->wValue, vdev->rhport);
+
+				vdev->udev = urb->dev;
 
 				spin_lock(&vdev->ud.lock);
 				vdev->ud.status = VDEV_ST_USED;
@@ -630,11 +632,11 @@ no_need_xmit:
 	spin_unlock_irqrestore(&the_controller->lock, flags);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
-		usb_hcd_giveback_urb(vhci_to_hcd(the_controller), urb, urb->status);
+	usb_hcd_giveback_urb(vhci_to_hcd(the_controller), urb, urb->status);
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,19)
-		usb_hcd_giveback_urb(vhci_to_hcd(the_controller), urb);
+	usb_hcd_giveback_urb(vhci_to_hcd(the_controller), urb);
 #else
-		usb_hcd_giveback_urb(vhci_to_hcd(the_controller), urb, NULL);
+	usb_hcd_giveback_urb(vhci_to_hcd(the_controller), urb, NULL);
 #endif /* LINUX_VERSION_CODE > KERNEL_VERSION(2,6,24) */
 
 	return 0;
