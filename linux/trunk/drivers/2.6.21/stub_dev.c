@@ -334,6 +334,12 @@ static struct stub_device * stub_device_alloc(struct usb_interface *interface)
 	}
 
 	sdev->interface = interface;
+
+	/*
+	 * devid is defined with devnum when this driver is first allocated.
+	 * devnum may change later if a device is reset. However, devid never
+	 * changes during a usbip connection.
+	 */
 	sdev->devid     = (busnum << 16) | devnum;
 
 	usbip_task_init(&sdev->ud.tcp_rx, "stub_rx", stub_rx_loop);
