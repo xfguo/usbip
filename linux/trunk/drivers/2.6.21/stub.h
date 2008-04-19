@@ -83,7 +83,11 @@ extern struct kmem_cache *stub_priv_cache;
 /* prototype declarations */
 
 /* stub_tx.c */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,21)
 void stub_complete(struct urb *);
+#else
+void stub_complete(struct urb *, struct pt_regs *);
+#endif
 void stub_tx_loop(struct usbip_task *);
 
 /* stub_dev.c */

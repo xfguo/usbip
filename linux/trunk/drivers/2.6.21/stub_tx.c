@@ -68,7 +68,11 @@ void stub_enqueue_ret_unlink(struct stub_device *sdev, __u32 seqnum, __u32 statu
  * linked to the pending list of returning.
  *
  */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,21)
 void stub_complete(struct urb *urb)
+#else
+void stub_complete(struct urb *urb, struct pt_regs *regs)
+#endif
 {
 	struct stub_priv *priv = (struct stub_priv *) urb->context;
 	struct stub_device *sdev = priv->sdev;

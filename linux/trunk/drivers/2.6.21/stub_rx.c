@@ -126,7 +126,12 @@ static int tweak_set_configuration_cmd(struct urb *urb)
 
 	uinfo("set_configuration: devnum %d %d\n", urb->dev->devnum, config);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,19)
 	return usb_driver_set_configuration(urb->dev, config);
+#else
+	uinfo("no support of set_config in 2.6.18\n");
+	return 0;
+#endif
 }
 
 /*
@@ -291,6 +296,33 @@ static struct stub_priv *stub_priv_alloc(struct stub_device *sdev,
 
 	return priv;
 }
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,21)
+static inline int usb_endpoint_xfer_bulk(
+		const struct usb_endpoint_descriptor *epd)
+{
+	return ((epd->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK) ==
+			USB_ENDPOINT_XFER_BULK);
+}
+static inline int usb_endpoint_xfer_control(
+		const struct usb_endpoint_descriptor *epd)
+{
+	return ((epd->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK) ==
+			USB_ENDPOINT_XFER_CONTROL);
+}
+static inline int usb_endpoint_xfer_int(
+		const struct usb_endpoint_descriptor *epd)
+{
+	return ((epd->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK) ==
+			USB_ENDPOINT_XFER_INT);
+}
+static inline int usb_endpoint_xfer_isoc(
+		const struct usb_endpoint_descriptor *epd)
+{
+	return ((epd->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK) ==
+			USB_ENDPOINT_XFER_ISOC);
+}
+#endif
 
 
 static int get_pipe(struct stub_device *sdev, int epnum, int dir)
