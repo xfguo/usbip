@@ -583,20 +583,12 @@ static int vhci_urb_enqueue(struct usb_hcd *hcd, struct usb_host_endpoint *ep, s
 				vdev->ud.status = VDEV_ST_USED;
 				spin_unlock(&vdev->ud.lock);
 
-				#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
-					spin_lock (&urb->lock);
-				#endif
-
 				if (urb->status == -EINPROGRESS) {
 					/* This request is successfully completed. */
 					/* If not -EINPROGRESS, possibly unlinked. */
 					urb->status = 0;
 				}
 				
-				#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
-					spin_unlock (&urb->lock);
-				#endif
-
 				goto no_need_xmit;
 
 			case USB_REQ_GET_DESCRIPTOR:
@@ -631,13 +623,11 @@ no_need_xmit:
 
 	spin_unlock_irqrestore(&the_controller->lock, flags);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
-	usb_hcd_giveback_urb(vhci_to_hcd(the_controller), urb, urb->status);
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,19)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,19)
 	usb_hcd_giveback_urb(vhci_to_hcd(the_controller), urb);
 #else
 	usb_hcd_giveback_urb(vhci_to_hcd(the_controller), urb, NULL);
-#endif /* LINUX_VERSION_CODE > KERNEL_VERSION(2,6,24) */
+#endif
 
 	return 0;
 }
@@ -766,13 +756,11 @@ static int vhci_urb_dequeue(struct usb_hcd *hcd, struct urb *urb)
 		/* tcp connection is closed */
 		uinfo("vhci_hcd: vhci_urb_dequeue() gives back urb %p\n", urb);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
-		usb_hcd_giveback_urb(vhci_to_hcd(the_controller), urb, urb->status);
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,19)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,19)
 		usb_hcd_giveback_urb(vhci_to_hcd(the_controller), urb);
 #else
 		usb_hcd_giveback_urb(vhci_to_hcd(the_controller), urb, NULL);
-#endif /* LINUX_VERSION_CODE > KERNEL_VERSION(2,6,24) */
+#endif
 
 	}
 
@@ -812,12 +800,8 @@ static void vhci_shutdown_connection(struct usbip_device *ud)
 	/* need this? see stub_dev.c */
 	if (ud->tcp_socket) {
 		udbg("shutdown tcp_socket %p\n", ud->tcp_socket);
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
-		/* in /usr/include/sys/socket.c, SHUT_RDWR is defined as 2. */
+
 		ud->tcp_socket->ops->shutdown(ud->tcp_socket, 2);
-#else
-		kernel_sock_shutdown(ud->tcp_socket, SHUT_RDWR);
-#endif
 	}
 
 	usbip_stop_threads(&vdev->ud);
