@@ -1,7 +1,7 @@
 /*
  * $Id$
  *
- * Copyright (C) 2003-2007 Takahiro Hirofuchi
+ * Copyright (C) 2003-2008 Takahiro Hirofuchi
  *
  *
  * This is free software; you can redistribute it and/or modify
