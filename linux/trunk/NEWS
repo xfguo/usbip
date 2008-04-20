@@ -2,10 +2,11 @@
 # $Id$
 
 usbip-0.1.6
-    - Add: compatibility code after 2.6.16
+    - Add: support 2.6.24 and 2.6.25
+    - Add: compatibility code after 2.6.16 
     - Cleanup: the basic header cleanup for future other operating system support
     - Fix: inet_shutdown()'s argment bug
-    - Add: some code that might fix reset issues
+    - Add: some code that might fix reset issues (after 2.6.24 only)
     - Add: some code about power managment in 2.6.24
     - Add: some code about tracking URBs in 2.6.24
 
