@@ -361,16 +361,62 @@ static struct stub_priv *stub_priv_alloc(struct stub_device *sdev,
 }
 
 
+static struct usb_host_endpoint *get_ep_from_epnum(struct usb_device *udev,
+		int epnum0)
+{
+	struct usb_host_config *config;
+	int i = 0, j = 0;
+	struct usb_host_endpoint *ep = NULL;
+	int epnum;
+	int found = 0;
+
+	if (epnum0 == 0)
+		return &udev->ep0;
+
+	config = udev->actconfig;
+	if (!config)
+		return NULL;
+
+	for (i = 0; i < config->desc.bNumInterfaces; i++) {
+		struct usb_host_interface *setting;
+
+		setting = config->interface[i]->cur_altsetting;
+
+		for (j = 0; j < setting->desc.bNumEndpoints; j++) {
+			ep = &setting->endpoint[j];
+			epnum = (ep->desc.bEndpointAddress & 0x7f);
+
+			if (epnum == epnum0) {
+				//uinfo("found epnum %d\n", epnum0);
+				found = 1;
+				break;
+			}
+		}
+	}
+
+	if (found)
+		return ep;
+	else
+		return NULL;
+}
+
+
 static int get_pipe(struct stub_device *sdev, int epnum, int dir)
 {
 	struct usb_device *udev = interface_to_usbdev(sdev->interface);
+	struct usb_host_endpoint *ep;
+	struct usb_endpoint_descriptor *epd = NULL;
 
-	struct usb_host_interface *iface;
-	struct usb_endpoint_descriptor *epd;
+	ep = get_ep_from_epnum(udev, epnum);
+	if (!ep) {
+		uerr("no such endpoint?, %d", epnum);
+		BUG();
+	}
 
-	iface = sdev->interface->cur_altsetting;
-	epd   = &iface->endpoint[epnum].desc;
+	epd = &ep->desc;
 
+
+#if 0
 	/* epnum 0 is always control */
 	if (epnum == 0) {
 		if (dir == USBIP_DIR_OUT)
@@ -378,6 +424,7 @@ static int get_pipe(struct stub_device *sdev, int epnum, int dir)
 		else
 			return usb_rcvctrlpipe(udev, 0);
 	}
+#endif
 
 	if (usb_endpoint_xfer_control(epd)) {
 		if (dir == USBIP_DIR_OUT)
@@ -483,6 +530,8 @@ static void stub_recv_cmd_submit(struct stub_device *sdev, struct usbip_header *
 		dbg_stub_rx("submit urb ok, seqnum %u\n", pdu->base.seqnum);
 	else {
 		uerr("submit_urb error, %d\n", ret);
+		usbip_dump_header(pdu);
+		usbip_dump_urb(priv->urb);
 
 		/*
 		 * Pessimistic.
