@@ -710,9 +710,10 @@ static int vhci_urb_dequeue(struct usb_hcd *hcd, struct urb *urb, int status)
 	{
 		int ret = 0;
 		ret = usb_hcd_check_unlink_urb(hcd, urb, status);
-		if (ret)
+		if (ret) {
 			spin_unlock_irqrestore(&the_controller->lock, flags);
-		return 0;
+			return 0;
+		}
 	}
 
 	 /* send unlink request here? */
