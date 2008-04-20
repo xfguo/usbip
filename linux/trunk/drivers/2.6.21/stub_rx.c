@@ -55,6 +55,27 @@ static int is_set_configuration_cmd(struct urb *urb)
 		   (req->bRequestType == USB_RECIP_DEVICE);
 }
 
+#if 0
+static int is_reset_device_cmd(struct urb *urb)
+{
+	struct usb_ctrlrequest *req;
+	__u16 value;
+	__u16 index;
+
+	req = (struct usb_ctrlrequest *) urb->setup_packet;
+	value = le16_to_cpu(req->wValue);
+	index = le16_to_cpu(req->wIndex);
+
+	if ((req->bRequest == USB_REQ_SET_FEATURE) &&
+	    	(req->bRequestType == USB_RT_PORT) &&
+		(value = USB_PORT_FEAT_RESET)) {
+		dbg_stub_rx("reset_device_cmd, port %u\n", index);
+		return 1;
+	} else 
+		return 0;
+}
+#endif
+
 static int tweak_clear_halt_cmd(struct urb *urb)
 {
 	struct usb_ctrlrequest *req;
@@ -119,24 +140,72 @@ static int tweak_set_configuration_cmd(struct urb *urb)
 	struct usb_ctrlrequest *req;
 	__u16 config;
 
-	info("set_configuration is not fully supported yet\n");
-
 	req = (struct usb_ctrlrequest *) urb->setup_packet;
 	config = le16_to_cpu(req->wValue);
 
-	uinfo("set_configuration: devnum %d %d\n", urb->dev->devnum, config);
+	/*
+	 * I have never seen a multi-config device. Very rare.
+	 * For most devices, this will be called to choose a default
+	 * configuration only once in an initialization phase.
+	 *
+	 * set_configuration may change a device configuration and its device
+	 * drivers will be unbound and assigned for a new device configuration.
+	 * This means this usbip driver will be also unbound when called, then
+	 * eventually reassigned to the device as far as driver matching
+	 * condition is kept.
+	 *
+	 * Unfortunatelly, an existing usbip connection will be dropped
+	 * due to this driver unbinding. So, skip here.
+	 * A user may need to set a special configuration value before
+	 * exporting the device.
+	 */
+	uinfo("set_configuration (%d) to %s\n", config, urb->dev->dev.bus_id);
+	uinfo("but, skip!\n");
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,19)
-	return usb_driver_set_configuration(urb->dev, config);
+	return 0;
+	//return usb_driver_set_configuration(urb->dev, config);
 #else
-	uinfo("no support of set_config in 2.6.18\n");
+	//uinfo("no support of set_config in 2.6.18\n");
 	return 0;
 #endif
 }
 
+#if 0
+static int tweak_reset_device_cmd(struct urb *urb)
+{
+	struct usb_ctrlrequest *req;
+	__u16 value;
+	__u16 index;
+	int ret;
+
+	req = (struct usb_ctrlrequest *) urb->setup_packet;
+	value = le16_to_cpu(req->wValue);
+	index = le16_to_cpu(req->wIndex);
+
+	uinfo("reset_device (port %d) to %s\n", index, urb->dev->dev.bus_id);
+
+	/* all interfaces should be owned by usbip driver, so just reset it. */
+	ret = usb_lock_device_for_reset(urb->dev, NULL);
+	if (ret < 0) {
+		uerr("lock for reset\n");
+		return ret;
+	}
+
+	/* try to reset the device */
+	ret = usb_reset_composite_device(urb->dev, NULL);
+	if (ret < 0)
+		uerr("device reset\n");
+
+	usb_unlock_device(urb->dev);
+
+	return ret;
+}
+#endif
+
+
 /*
  * clear_halt, set_interface, and set_configuration require special tricks.
- * TODO: set_configuration. but I have never seen a multi-config device.
  */
 static void tweak_special_requests(struct urb *urb)
 {
@@ -157,6 +226,11 @@ static void tweak_special_requests(struct urb *urb)
 	else if (is_set_configuration_cmd(urb))
 		/* tweak set_configuration */
 		tweak_set_configuration_cmd(urb);
+
+#if 0
+	else if (is_reset_device_cmd(urb))
+		tweak_reset_device_cmd(urb);
+#endif
 
 	else
 		dbg_stub_rx("no need to tweak\n");
@@ -325,16 +399,62 @@ static inline int usb_endpoint_xfer_isoc(
 #endif
 
 
+static struct usb_host_endpoint *get_ep_from_epnum(struct usb_device *udev,
+		int epnum0)
+{
+	struct usb_host_config *config;
+	int i = 0, j = 0;
+	struct usb_host_endpoint *ep = NULL;
+	int epnum;
+	int found = 0;
+
+	if (epnum0 == 0)
+		return &udev->ep0;
+
+	config = udev->actconfig;
+	if (!config)
+		return NULL;
+
+	for (i = 0; i < config->desc.bNumInterfaces; i++) {
+		struct usb_host_interface *setting;
+
+		setting = config->interface[i]->cur_altsetting;
+
+		for (j = 0; j < setting->desc.bNumEndpoints; j++) {
+			ep = &setting->endpoint[j];
+			epnum = (ep->desc.bEndpointAddress & 0x7f);
+
+			if (epnum == epnum0) {
+				//uinfo("found epnum %d\n", epnum0);
+				found = 1;
+				break;
+			}
+		}
+	}
+
+	if (found)
+		return ep;
+	else
+		return NULL;
+}
+
+
 static int get_pipe(struct stub_device *sdev, int epnum, int dir)
 {
 	struct usb_device *udev = interface_to_usbdev(sdev->interface);
+	struct usb_host_endpoint *ep;
+	struct usb_endpoint_descriptor *epd = NULL;
 
-	struct usb_host_interface *iface;
-	struct usb_endpoint_descriptor *epd;
+	ep = get_ep_from_epnum(udev, epnum);
+	if (!ep) {
+		uerr("no such endpoint?, %d", epnum);
+		BUG();
+	}
 
-	iface = sdev->interface->cur_altsetting;
-	epd   = &iface->endpoint[epnum].desc;
+	epd = &ep->desc;
 
+
+#if 0
 	/* epnum 0 is always control */
 	if (epnum == 0) {
 		if (dir == USBIP_DIR_OUT)
@@ -342,6 +462,7 @@ static int get_pipe(struct stub_device *sdev, int epnum, int dir)
 		else
 			return usb_rcvctrlpipe(udev, 0);
 	}
+#endif
 
 	if (usb_endpoint_xfer_control(epd)) {
 		if (dir == USBIP_DIR_OUT)
@@ -447,6 +568,8 @@ static void stub_recv_cmd_submit(struct stub_device *sdev, struct usbip_header *
 		dbg_stub_rx("submit urb ok, seqnum %u\n", pdu->base.seqnum);
 	else {
 		uerr("submit_urb error, %d\n", ret);
+		usbip_dump_header(pdu);
+		usbip_dump_urb(priv->urb);
 
 		/*
 		 * Pessimistic.

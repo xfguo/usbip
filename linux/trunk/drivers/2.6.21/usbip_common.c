@@ -877,6 +877,13 @@ int usbip_recv_iso(struct usbip_device *ud, struct urb *urb)
 	if (!usb_pipeisoc(urb->pipe))
 		return 0;
 
+	/* my Bluetooth dongle gets ISO URBs which are np = 0 */
+	if (np == 0) {
+		//uinfo("iso np == 0\n");
+		//usbip_dump_urb(urb);
+		return 0;
+	}
+
 	buff = kzalloc(size, GFP_KERNEL);
 	if (!buff)
 		return -ENOMEM;
