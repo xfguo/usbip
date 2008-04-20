@@ -2,12 +2,18 @@
 # $Id$
 
 usbip-0.1.6
+    - Add: compatibility code after 2.6.16
+    - Cleanup: the basic header cleanup for future other operating system support
+    - Fix: inet_shutdown()'s argment bug
+    - Add: some code that might fix reset issues
+    - Add: some code about power managment in 2.6.24
+    - Add: some code about tracking URBs in 2.6.24
 
 usbip-0.1.5
     - Fix: "make dist" works.
     - Cleanup: use autoreconf instead.
-    - Cleanup: change vhci_driver as a global value in libusbip.
-    - Cleanup: change stub_driver as a global value in libusbip.
+    - Cleanup: change vhci_driver as a global value in libusbip
+    - Cleanup: change stub_driver as a global value in libusbip
     - Cleanup: trim unused spaces.
     - Add: version info in configure.ac
     - Fix: auto detection of "glib-2.0 >= 2.6.0"
