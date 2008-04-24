@@ -102,7 +102,7 @@ static ssize_t show_status(struct device *dev, struct device_attribute *attr,
 
 	/*
 	 * output example:
-	 * prt sta bus dev socket           local_busid
+	 * prt sta spd dev socket           local_busid
 	 * 000 004 000 000         c5a7bb80 1-2.3
 	 * 001 004 000 000         d8cee980 2-3.4
 	 *
