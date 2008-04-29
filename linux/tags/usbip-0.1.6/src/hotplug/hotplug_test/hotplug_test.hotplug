@@ -1,0 +1,29 @@
+#!/bin/bash
+
+#
+# hotplug_test.hotplug
+#
+# Copyright (C) 2007 by Robert Leibl <robert.leibl@gmail.com>
+#
+#
+
+LOG=/tmp/hotplug_test.log
+
+# mark entry point in logfile
+echo >> $LOG
+echo >> $LOG
+echo "===============================================">> $LOG
+echo "hotplug_test.hotplug (`date`) ">> $LOG
+echo "===============================================">> $LOG
+echo "Parameters:">> $LOG
+for ITEM in $*
+do
+	echo $ITEM>> $LOG
+done
+
+echo>> $LOG
+echo "env:">> $LOG
+echo  `env` | tr ' ' '\n' >> $LOG
+
+echo >> $LOG
+echo "hotplug test successfull" >> $LOG
