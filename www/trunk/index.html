@@ -147,9 +147,9 @@
 					<ul>
 						<li>"client" and "server" are confusing...
 						<br>A server host has physical USB devices which are exported to a client
-						host. In the server host, load vhci-hcd.ko and use usbipd.
+						host. In the server host, load usbip_common_mod.ko and vhci-hcd.ko, and then use usbipd.
 						The client host imports a USB device virtually; the client host may
-						not have a real USB device. In the client host, load usbip.ko and use usbip.
+						not have a real USB device. In the client host, load usbip_common_mod.ko and usbip.ko, and then use usbip.
 
 						<li>USB/IP is stable ?
 						<br>It basically works for most USB devices under LAN (Gb Ethernet is better).
