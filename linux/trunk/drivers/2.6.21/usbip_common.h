@@ -135,17 +135,22 @@ extern struct device_attribute dev_attr_usbip_debug;
 /*-------------------------------------------------------------------------*/
 
 /*
- * USB/IP packet headers.
- * At now, we define 4 packet types:
+ * USB/IP request headers.
+ * Currently, we define 4 request types:
  *
- *  - CMD_SUBMIT transfers a USB request. This is corresponding to usb_submit_urb().
- *  - RET_RETURN transfers a result of a USB request.
+ *  - CMD_SUBMIT transfers a USB request, corresponding to usb_submit_urb().
+ *    (client to server)
+ *  - RET_RETURN transfers the result of CMD_SUBMIT.
+ *    (server to client)
  *  - CMD_UNLINK transfers an unlink request of a pending USB request.
- *  - RET_UNLINK transfers an unlink request of a pending USB request.
+ *    (client to server)
+ *  - RET_UNLINK transfers the result of CMD_UNLINK.
+ *    (server to client)
  *
- * TODO:
+ * Note: The below request formats are based on the USB subsystem of Linux. Its
+ * details will be defined when other implementations come.
  *
- *  - inter-operability between other OSs
+ *
  */
 
 /*
@@ -158,11 +163,13 @@ struct usbip_header_basic {
 #define USBIP_RET_UNLINK	0x0004
 	__u32 command;
 
-	__u32 seqnum; /* seaquencial number which identifies URBs */
+	 /* sequencial number which identifies requests.
+	  * incremented per connections */
+	__u32 seqnum;
 
-	/* devid will be used to specify a remote USB device uniquely instead
-	 * of busnum and devnum. In the case of Linux stub_driver, this value
-	 * is ((busnum << 16) | devnum) */
+	/* devid is used to specify a remote USB device uniquely instead
+	 * of busnum and devnum in Linux. In the case of Linux stub_driver,
+	 * this value is ((busnum << 16) | devnum) */
 	__u32 devid;  
 
 #define USBIP_DIR_OUT	0
@@ -175,12 +182,27 @@ struct usbip_header_basic {
  * An additional header for a CMD_SUBMIT packet.
  */
 struct usbip_header_cmd_submit {
+	/* these values are basically the same as in a URB. */
+
+	/* the same in a URB. */
 	__u32 transfer_flags;
+
+	/* set the following data size (out),
+	 * or expected reading data size (in) */
 	__s32 transfer_buffer_length;
+
+	/* it is difficult for usbip to sync frames (reserved only?) */
 	__s32 start_frame;
+
+	/* the number of iso descriptors that follows this header */
 	__s32 number_of_packets;
+
+	/* the maximum time within which this request works in a host
+	 * controller of a server side */
 	__s32 interval;
-	unsigned char setup[8]; /* CTRL only */
+
+	/* set setup packet data for a CTRL request */
+	unsigned char setup[8];
 }__attribute__ ((packed));
 
 /*
