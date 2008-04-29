@@ -24,6 +24,7 @@
 				between computers with their full functionality, USB/IP
 				encapsulates "USB I/O messages" into IP packets and
 				transmits them between computers.
+				<a href="http://sourceforge.net/project/showfiles.php?group_id=122798&package_id=134103">Download the latest code</a>.
 				</p>
 
 				<div id="sidebar">
@@ -71,7 +72,7 @@
 					</ul>
 
 					<p>
-					It is currentlly implemented as Linux device drivers and available under the open source license GPL.
+					It is currently implemented as Linux device drivers and available under the open source license GPL.
 					Its I/O performance is enough practical in local area network for all types of devices, including isochronous devices,
 					without any modification of Linux-original USB device drivers.
 					</p>
@@ -96,8 +97,8 @@
 
 
 					<p>
+					The project Wiki is <a href="http://usbip.wiki.sourceforge.net/">here</a>.
 					See also source code and below papers.
-					(TODO)
 					</p>
 					
 					<UL>
@@ -123,7 +124,6 @@
 					<p>
 					You need to compile both kernel modules and utility programs.
 					See READMEs in tarball.
-					(TODO)
 					</p>
 
 					<ul>
@@ -134,20 +134,16 @@
 					<h2>Usage</h2>
 					<p>
 					See READMEs in tarball.
-					(TODO)
 					</p>
 					<ul>
 						<li><a href="http://usbip.svn.sourceforge.net/viewvc/usbip/linux/trunk/src/README?view=markup">src/README</a>
 					</ul>
 
 					<h2>TODO &amp; Future Plan</h2>
-					<p>
-					A lot. I am considering moving more kernel code to userland.
-					But, I do not have time to do it right now.
-					(TODO)
-					</p>
+					<p>Read <a href="http://usbip.wiki.sourceforge.net/Todo">Todo list in the project Wiki</a>.</p>
 
 					<h2>FAQ</h2>
+					<p>Read <a href="http://usbip.wiki.sourceforge.net/FAQ">FAQ in the project Wiki</a>.</p>
 					<ul>
 						<li>"client" and "server" are confusing...
 						<br>A server host has physical USB devices which are exported to a client
@@ -156,7 +152,8 @@
 						not have a real USB device. In the client host, load usbip.ko and use usbip.
 
 						<li>USB/IP is stable ?
-						<br>No. It is still at a *very* early development stage.
+						<br>It basically works for most USB devices under LAN (Gb Ethernet is better).
+						It has minimum features (e.g., attach/detach) and your contribution is welcome.
 
 						<li>Do you have a plan to develop the MS Windows client of USB/IP ?
 						<br>Some people are trying to develop it. But, the Host Controller API of
@@ -188,7 +185,6 @@
 					<h2>Latest Release</h2>
 					<p>
 					Download is available from sourceforge.net.
-					Please note that this is a <strong>pre-alpha</strong> release!
 					</p>
 					<ul>
 						<li><a href="http://sourceforge.net/project/showfiles.php?group_id=122798">File Releases</a>
