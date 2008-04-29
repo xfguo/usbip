@@ -5,13 +5,6 @@
 # Copyright (C) 2003-2008 Takahiro Hirofuchi
 
 
-Notice
-    This is a "pre-alpha" release.  
-    Some functions have not been implemented completely. There are a lot
-    of bugs. But, I believe you can understand our concept by this
-    implementation. Your contributions are welcome. Please contact me.
-
-
 Overview
     The USB/IP Project aims to develop a general USB device sharing system
     over IP network. To share USB devices between computers with their
@@ -47,19 +40,6 @@ Overview
     The detail is described in an academic paper.
 
 
-Mode of operation
-    There are two ways, USBIP can be used.
-    
-    1. Import devices from a remote machine to your machine.
-       This can be usefull, if you need to access a device, e.g. storage,
-       cd-burner, or camera, that is attached to a central machine.
-
-    2. Automatically export devices plugged into your machine to a remote
-       server.
-       This is usefull in Thin Client environments, or if you are using remote
-       Desktop solutions like FreeNX, vnc, or ssh from a workstation.
-
-
 Compile & Install
     USB/IP needs both kernel drivers and userland utilities.
 
@@ -70,36 +50,20 @@ Compile & Install
     See src/README for details
 
 
-FAQ
-    Q.  I want to know how it works.
-    A.  Please read my technical papers which are available at
-        http://usbip.sourceforge.net/ .
+Usages
+    - Import devices from a server host.
+      Normal operation. e.g., device servers.
+      Read src/README for details.
 
-    Q.  Why does not USB/IP support Linux version 2.4 ?
-    A.  The USB driver stack of version 2.6 is dramatically improved and now
-        very different from 2.4. I think 2.6 kernel is only suitable for it.
-        Anyway, long days ago, I tried to develop it for 2.4 experimentally.
-        Its code is now available at the download area. But, please understand
-        it lacks some essential functionality and very unstable. Do not use
-        it and do not ask me about it. I will never develop the 2.4 version of
-        USB/IP anymore.
+    - Export devices automatically when plugged.
+      e.g., thin client systems and remote desktop programs.
+      Read src/README.usbaid for details.
+      This feature is added by Robert. Thanks.
 
-    Q.  "client" and "server" are confusing...
-    A.  A server host has physical USB devices which are exported to a client
-        host. In the server host, load vhci-hcd.ko and use usbipd.
-        The client host imports a USB device virtually; the client host may
-        not have a real USB device. In the client host, load usbip.ko and use usbip.
 
-    Q.  USB/IP is stable ?
-    A.  No. It is still at a *very* early development stage.
-
-    Q.  Do you have a plan to develop the MS Windows client of USB/IP ?
-    A.  Some people are trying to develop it. But, the Host Controller API of
-        MS Windows is not well-documented. This issue was discussed
-        in the project forum in sf.net.
-
-    Q.  Does your USB/IP implementation have compatibility with Anywhere USB ?
-    A.  No.
+Wiki
+    http://usbip.wiki.sourceforge.net/
+    FAQ, Todo list, Known bugs, and so on.
 
 
 Public Forum and Mailing List
@@ -112,12 +76,6 @@ Public Forum and Mailing List
 
 RSS feeds (e.g., the latest file releases)
     http://sourceforge.net/export/rss2_project.php?group_id=122798
-
-
-We would like to hear from you!
-    If you use usbip, we would like you to tell us. It does not matter, if you
-    use it regularly, or just took a peek at it. Please write a mail to the
-    usbip mailinglist, or directly to us (see below).
 
 
 Contact

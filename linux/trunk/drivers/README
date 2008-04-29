@@ -14,6 +14,8 @@ This directory contains the source code of usbip drivers for mainline kernel.
 	5. Don't forget to make USB/IP tools. See $(top)/src/README.
 
 [Tips]
+	Read http://usbip.wiki.sourceforge.net/how-to-debug-usbip .
+
 	If you want to see a lot of debug messages,
 		make KSOURCE=/usr/src/kernel-source-2.6.15 DEBUG=y
 
