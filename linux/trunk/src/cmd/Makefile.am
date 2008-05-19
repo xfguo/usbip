@@ -7,10 +7,7 @@ usbipd_SOURCES = stub_server.c usbip_network.c usbip_network.h
 bind_driver_SOURCES = bind-driver.c \
 		utils.c utils.h \
 		usbip_export.h usbip_export.c \
-		usbip_network.h usbip_network.c \
-		logging.h logging.c \
-		usbip_hotplug.h usbip_hotplug.c \
-		hotplug_config.h hotplug_config.c
+		usbip_network.h usbip_network.c
 
 usbaid_SOURCES = usbaid.c usbip_network.h usbip_network.c
 

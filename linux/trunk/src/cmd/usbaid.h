@@ -19,13 +19,11 @@
 #include <string.h>
 
 #include "usbip_network.h"
-#include "log_util.h"
 
 #define RUN_DIR "/tmp"
 #define MAX_SOCKETS 20
 #define USBAID_PORT_STRING "6000"
 
-//#define TRACE_DEBUGGING 1
 
 
 /* main loop control variable */
@@ -38,14 +36,6 @@ static int keep_running = 1;
  */
 int listen_sockets[MAX_SOCKETS];
 int max_fd = -1; /* the highest file descriptor (for select()) */
-
-/*
- * used for logging
- */
-//extern int usbip_use_syslog = 1;
-//extern int usbip_use_stderr = 0;
-//extern int usbip_use_debug  = 0;
-
 
 /*
  * displays a help message

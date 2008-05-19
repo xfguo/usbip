@@ -22,12 +22,6 @@
 
 #include "usbip_export.h"
 
-/*
-int usbip_use_debug  = 1;
-int usbip_use_stderr = 1;
-int usbip_use_syslog = 0;
-*/
-
 
 /*
  * exports the device on @busid to @host.
@@ -38,7 +32,6 @@ int export_busid_to_host(char *host, char *busid) {
 
 	int ret;
 	int sockfd;
-	uint16_t code = OP_REP_EXPORT;
 	struct usbip_exported_device *edev;
 
 	/*
@@ -46,7 +39,7 @@ int export_busid_to_host(char *host, char *busid) {
 	 */
 	ret = usbip_stub_driver_open();
 	if( ret != 0 ) {
-		logerr( "could not open stub_driver");
+		err( "could not open stub_driver");
 		return -1;
 	}
 
@@ -55,7 +48,7 @@ int export_busid_to_host(char *host, char *busid) {
 	 */
 	edev = busid_to_edev(busid);
 	if( edev == NULL ) {
-		logerr( "no device found matching busid" );
+		err( "no device found matching busid" );
 		goto exit_failure;
 	}
 
@@ -67,20 +60,20 @@ int export_busid_to_host(char *host, char *busid) {
 	 */
 	sockfd = tcp_connect(host, USBAID_PORT_STRING);
 	if( sockfd < 0 ) {
-		logerr("tcp connection failed");
+		err("tcp connection failed");
 		goto exit_failure;
 	} 
-	logdbg("tcp connection established");
+	dbg("tcp connection established");
 
 	/*
 	 * mark device as exported
 	 */
 	ret = usbip_stub_export_device(edev, sockfd);
 	if( ret < 0 ) {
-		logerr( "exporting of the device failed" );
+		err( "exporting of the device failed" );
 		goto exit_failure;
 	}
-	logdbg("devices marked as exported");
+	dbg("devices marked as exported");
 
 
 	/*
@@ -88,18 +81,18 @@ int export_busid_to_host(char *host, char *busid) {
 	 */
 	ret = usbip_send_op_common( sockfd, OP_REQ_EXPORT, 0 );
 	if( ret < 0 ) {
-		logerr( "sending OP_REQ_EXPORT failed" );
+		err( "sending OP_REQ_EXPORT failed" );
 		goto exit_failure;
 	}
-	logdbg("export request (OP_COMMON) sent");
+	dbg("export request (OP_COMMON) sent");
 
 	ret = send_request_export( sockfd, &(edev->udev) );
 	if( ret < 0 ) {
-		logerr( "sending export request failed" );
+		err( "sending export request failed" );
 		goto exit_failure;
 	}
-	logdbg("export request (device) sent");
-	logdbg("device exported" );
+	dbg("export request (device) sent");
+	dbg("device exported" );
 
 	/*
 	 * We do not wait for a status notification. see
@@ -129,7 +122,7 @@ int unexport_busid_from_host(char *host, char *busid) {
 	 */
 	ret = usbip_stub_driver_open();
 	if( ret != 0 ) {
-		logerr( "could not open stub_driver");
+		err( "could not open stub_driver");
 		return -1;
 	}
 
@@ -138,7 +131,7 @@ int unexport_busid_from_host(char *host, char *busid) {
 	 */
 	edev = busid_to_edev(busid);
 	if( edev == NULL ) {
-		logerr( "no device found matching busid" );
+		err( "no device found matching busid" );
 		goto exit_failure;
 	}
 
@@ -147,27 +140,27 @@ int unexport_busid_from_host(char *host, char *busid) {
 	 */
 	sockfd = tcp_connect(host, USBAID_PORT_STRING);
 	if( sockfd < 0 ) {
-		logerr("tcp connection failed");
+		err("tcp connection failed");
 		goto exit_failure;
 	} 
-	logdbg("tcp connection established");
+	dbg("tcp connection established");
 
 	/*
 	 * now, tell server
 	 */
 	ret = usbip_send_op_common( sockfd, OP_REQ_UNEXPORT, 0 );
 	if( ret < 0 ) {
-		logerr( "sending OP_REQ_UNEXPORT failed" );
+		err( "sending OP_REQ_UNEXPORT failed" );
 		goto exit_failure;
 	}
-	logdbg("unexport request (OP_COMMON) sent");
+	dbg("unexport request (OP_COMMON) sent");
 
 	ret = send_request_unexport( sockfd, &(edev->udev) );
 	if( ret < 0 ) {
-		logerr( "sending unexport request failed" );
+		err( "sending unexport request failed" );
 		goto exit_failure;
 	}
-	logdbg("unexport request (device) sent");
+	dbg("unexport request (device) sent");
 
 	/*
 	 * mark device as no longer exported
@@ -182,7 +175,7 @@ int unexport_busid_from_host(char *host, char *busid) {
 	/* receive status message from server */
 	ret = usbip_recv_op_common(sockfd, &code);
 	if( ret < 0 ) {
-		logerr( "receiving op_common failed" );
+		err( "receiving op_common failed" );
 		goto exit_failure;
 	}
 
@@ -207,12 +200,12 @@ int send_request_export(int sockfd, struct usb_device *udev) {
 	memcpy( &pdu_udev, udev, sizeof(pdu_udev) );
 	pack_usb_device(1, &pdu_udev);
 
-	logdbg("sending usb device: (-) %u %u %u %u",
+	dbg("sending usb device: (-) %u %u %u %u",
 			sockfd, pdu_udev.busnum, pdu_udev.devnum, pdu_udev.speed );
 
 	ret = usbip_send(sockfd, (void*)&pdu_udev, sizeof(pdu_udev));
 	if( ret < 0 ) {
-		logerr( "sending deviceinfo failed" );
+		err( "sending deviceinfo failed" );
 		return -1;
 	}
 
@@ -227,12 +220,12 @@ int send_request_unexport(int sockfd, struct usb_device *udev) {
 	memcpy( &pdu_udev, udev, sizeof(pdu_udev) );
 	pack_usb_device(1, &pdu_udev);
 
-	logdbg("sending usb device: (-) %u %u %u %u",
+	dbg("sending usb device: (-) %u %u %u %u",
 			sockfd, pdu_udev.busnum, pdu_udev.devnum, pdu_udev.speed );
 
 	ret = usbip_send(sockfd, (void*)&pdu_udev, sizeof(pdu_udev));
 	if( ret < 0 ) {
-		logerr( "sending deviceinfo failed" );
+		err( "sending deviceinfo failed" );
 		return -1;
 	}
 
@@ -252,7 +245,7 @@ struct usbip_exported_device *busid_to_edev(char *busid) {
 
 	dlist_for_each_data(stub_driver->edev_list, edev, struct usbip_exported_device) {
 		if (!strncmp(busid, edev->udev.busid, SYSFS_BUS_ID_SIZE)) {
-			logdbg("found requested device %s", busid);
+			dbg("found requested device %s", busid);
 			//udev = &(edev->udev);
 			break;
 		}

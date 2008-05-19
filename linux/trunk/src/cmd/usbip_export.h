@@ -26,7 +26,6 @@
 #include <stub_driver.h>
 #include <glib.h>
 
-#include "logging.h"
 #include "usbip_network.h"
 
 /*

@@ -18,11 +18,6 @@
 #include <netdb.h>
 #include <sys/socket.h>
 
-/*
- * logging has moved to this file
- */
-#include "log_util.h"
-
 #ifndef USBIDS_FILE
 #define USBIDS_FILE "/usr/share/hwdata/usb.ids"
 #endif
@@ -53,7 +48,6 @@ enum usbip_device_status{
 	VDEV_ST_ERROR
 };
 
-/*
 extern int usbip_use_syslog;
 extern int usbip_use_stderr;
 extern int usbip_use_debug ;
@@ -102,7 +96,6 @@ extern int usbip_use_debug ;
 
 
 #define BUG()	do { err("sorry, it's a bug"); abort(); } while (0)
-*/
 
 
 struct usb_interface {

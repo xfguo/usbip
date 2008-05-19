@@ -6,31 +6,25 @@
 
 #include "utils.h"
 #include "usbip_export.h"
-#include "usbip_hotplug.h"
-#include "logging.h"
-#include "hotplug_config.h"
 
 #define _GNU_SOURCE
 #include <getopt.h>
 #include <glib.h>
 
 
-/*
- * functions using 'logging.h' facilities log to stdout per default
- */
-int logfile_open = 0;
 
 static const struct option longopts[] = {
 	{"usbip",	required_argument,	NULL, 'u'},
 	{"other",	required_argument,	NULL, 'o'},
 	{"list",	no_argument,		NULL, 'l'},
-	{"scriptlist",	no_argument,	NULL, 's'},
-	{"autobind",	no_argument,	NULL, 'a'},
+	{"allusbip",	no_argument,		NULL, 'a'},
+
 	{"help",	no_argument,		NULL, 'h'},
+
 	{"export-to",   required_argument,	NULL, 'e'},
 	{"unexport",    required_argument,	NULL, 'x'},
 	{"busid",	required_argument,	NULL, 'b'},
-	{"hotplug",     no_argument,            NULL, 'H'},
+
 	{NULL,		0,			NULL,  0}
 };
 
@@ -41,17 +35,14 @@ static void show_help(void)
 {
 	printf("Usage: bind-driver [OPTION]\n");
 	printf("Change driver binding for USB/IP.\n");
-	printf("  --usbip busid        make a device exportable by USB/IP\n");
+	printf("  --usbip busid        make a device exportable\n");
 	printf("  --other busid        use a device by a local driver\n");
 	printf("  --list               print usb devices and their drivers\n");
-	printf("  --scriptlist         print usb devices and their drivers. handy for scripts\n");
-	printf("  --autobind           make all devices exportable by USB/IP\n");
+	printf("  --allusbip           make all devices exportable\n");
+
 	printf("  --export-to host     export the device to 'host'\n");
 	printf("  --unexport host      unexport a device previously exported to 'host'\n");
 	printf("  --busid busid        the busid used for --export-to\n");
-	printf("  --hotplug            automatically export a new device\n");
-	printf("                       NOTE: This option must be used from a\n");
-	printf("                             hotplug environment\n");
 }
 
 static int modify_match_busid(char *busid, int add)
@@ -386,54 +377,6 @@ static int show_devices(void)
 	return 0;
 }
 
-static int show_devices_script(void)
-{
-	DIR *dir;
-
-	dir = opendir("/sys/bus/usb/devices/");
-	if (!dir)
-		g_error("opendir: %s", strerror(errno));
-
-	for (;;) {
-		struct dirent *dirent;
-		char *busid;
-
-		dirent = readdir(dir);
-		if (!dirent)
-			break;
-
-		busid = dirent->d_name;
-
-		if (is_usb_device(busid)) {
-			char name[100] = {'\0'};
-			char driver[100] =  {'\0'};
-			int conf, ninf = 0;
-			int i;
-			int islocal = 0;
-
-			conf = read_bConfigurationValue(busid);
-			ninf = read_bNumInterfaces(busid);
-
-			getdevicename(busid, name, sizeof(name));
-
-			for (i = 0; i < ninf; i++) {
-				getdriver(busid, conf, i, driver, sizeof(driver));
-				
-				if (strncmp(driver, "usbhid", 6) == 0 || strncmp(driver, "usb-storage", 11) == 0) {
-					islocal = 1;
-					break;
-				}
-			}
-			
-			if (islocal == 0)
-				printf("%s|%s|%s\n", busid, driver, name);
-		}
-	}
-
-	closedir(dir);
-
-	return 0;
-}
 
 static int export_to(char *host, char *busid) {
 
@@ -475,186 +418,26 @@ static int unexport_from(char *host, char *busid) {
 
 	int ret;
 
-	if( host == NULL ) {
-		logerr( "no host given\n\n");
-		show_help();
-		return -1;
-	}
-	if( busid == NULL ) {
-		/* XXX print device list and ask for busnumber, if none is
-		 * given */
-		logerr( "no busid given, use --busid switch\n\n");
-		show_help();
-		return -1;
-	}
-	logmsg("unexport_from: host: '%s', busid: '%s'", host, busid);
+	if (!host || !busid)
+		g_error("no host or no busid\n");
 
+	g_message("unexport_from: host: '%s', busid: '%s'", host, busid);
 
-	printf( "DEBUG: unexporting device '%s' from '%s'\n", busid, host );
 	ret = unexport_busid_from_host(host, busid); /* usbip_export.[ch] */
 	if( ret != 0 ) {
-		logerr( "could not unexport device from host\n" );
-		logerr( "   host: %s, device: %s\n", host, busid );
+		err( "could not unexport device from host\n" );
+		err( "   host: %s, device: %s\n", host, busid );
 	}
 
 	ret = use_device_by_other(busid);
-	if( ret != 0 ) {
-		logerr( "could not unbind device from usbip\n");
-		return -1;
-	}
+	if (ret < 0)
+		g_error("could not unbind device from usbip\n");
 
 	return 0;
 }
 
-static int hotplug_remove_device(void) {
 
-	int ret;
-	char serv[256];
-	char *busid;
-
-	logmsg("bind-driver.c:: removing device" );
-
-	busid = get_busid_from_env();
-	if( busid == NULL ) {
-		logmsg("error retrieving busid");
-		return -1;
-	}
-	logmsg("busid = '%s'", busid);
-
-	ret = get_tmp_file(serv, busid);
-	if(ret) {
-		logerr("could not get server from /tmp file" );
-		return -1;
-	}
-	logmsg("export server is '%s'", serv);
-
-	/* XXX
-	 * we don't do anything here. The server will know by itself, that the
-	 * device is no longer available, as the connection will break down,
-	 * and it will (afai guess) receive the 'UNAVAILABLE' signal. If we
-	 * try to use unexport_from at this point, the driver might already be
-	 * unavailable, which will result in a segmentation fault!
-	 */
-	/*ret = unexport_from(serv, busid);
-	if(ret) {
-		logerr("exporting of device failed");
-		return -1;
-	}*/
-	
-	remove_tmp_file(serv, busid);
-
-	logmsg("device removed");
-
-	return 0;
-}
-
-static int hotplug_add_device(void) {
-
-	int ret;
-	char serv[256];
-	char *busid = NULL;
-
-	logmsg("bind-driver.c:: adding device" );
-
-	ret = read_config();
-	if(ret) {
-		if(ret == 1) {
-			logmsg("usbip turned off in config file");
-			return 0;
-		}else {
-			logerr("error reading config file");
-			return -1;
-		}
-	}
-
-	ret = get_export_server(serv, 256);/*XXX*/
-	if(ret) {
-		logerr("could not get export server");
-		return -1;
-	}
-	logmsg("export server is '%s'", serv);
-
-	ret = export_device_q();
-	switch (ret) {
-		case EXPORT:
-			logmsg(" -- exporting device --" );
-			break;
-		case NO_EXPORT:
-			logmsg(" -- not exporting device --");
-			return 0;
-			break;
-		default:
-			logwarn("export_device_q returned with error: %d",ret);
-			return -1;
-	}
-
-	busid = get_busid_from_env();
-	if( busid == NULL ) {
-		logerr("error retrieving busid");
-		return -1;
-	}
-	logmsg("busid: '%s'", busid);
-
-	logmsg("exporting device '%s' to server '%s'", busid, serv);
-	ret = export_to(serv, busid);
-	if(ret) {
-		logerr("exporting of device failed");
-		logerr("see syslog for details");
-		return -1;
-	}
-	logmsg("device exported");
-
-	
-	ret = create_tmp_file(serv, busid);
-	if(ret) {
-		logwarn("failed to create /tmp file");
-	}
-
-	return 0;
-}
-
-static int hotplug(void) {
-
-	int ret;
-	char *action;
-
-
-	ret = open_log();
-	if( ret < 0 ) {
-		logwarn("could not open logfile");
-	}
-	logmsg(" ------------ hotplug() called ---------------" );
-
-
-	ret = check_environment_sane();
-	if( ret ) {
-		logerr("environment is not sane");
-		return -1;
-	}
-
-	action = getenv("ACTION");
-	if( action == NULL ) { /* after check_environment that cannot happen */
-		logerr("ACTION is not set.");
-		return -1;
-	}
-
-	if( ! strncmp(action, "add", 3 )) {
-		hotplug_add_device();
-	}
-	else if( ! strncmp(action, "remove", 6)) {
-		hotplug_remove_device();
-	}
-	else {
-		logerr("illegal ACTION value: %s", action);
-		return -1;
-	}
-	
-	close_log();
-
-	return 0;
-}
-
-static int auto_bind(void)
+static int allusbip(void)
 {
 	DIR *dir;
 
@@ -672,12 +455,14 @@ static int auto_bind(void)
 
 		busid = dirent->d_name;
 
-		if (is_usb_device(busid)) {
-			char name[100] = {'\0'};
-			char driver[100] =  {'\0'};
+		if (!is_usb_device(busid))
+			continue;
+
+		{
+			char name[PATH_MAX];
 			int conf, ninf = 0;
 			int i;
-			int islocal = 0;
+			int be_local = 0;
 
 			conf = read_bConfigurationValue(busid);
 			ninf = read_bNumInterfaces(busid);
@@ -685,15 +470,18 @@ static int auto_bind(void)
 			getdevicename(busid, name, sizeof(name));
 
 			for (i = 0; i < ninf; i++) {
+				char driver[PATH_MAX];
+
 				getdriver(busid, conf, i, driver, sizeof(driver));
-				
+#if 0
 				if (strncmp(driver, "usbhid", 6) == 0 || strncmp(driver, "usb-storage", 11) == 0) {
-					islocal = 1;
+					be_local = 1;
 					break;
 				}
+#endif
 			}
 			
-			if (islocal == 0)
+			if (be_local == 0)
 				use_device_by_usbip(busid);
 		}
 	}
@@ -713,12 +501,10 @@ int main(int argc, char **argv)
 		cmd_use_by_usbip,
 		cmd_use_by_other,
 		cmd_list,
-		cmd_scriptlist,
-		cmd_autobind,
+		cmd_allusbip,
 		cmd_export_to,
 		cmd_unexport,
 		cmd_help,
-		cmd_hotplug
 	} cmd = cmd_unknown;
 
 	if (geteuid() != 0)
@@ -728,7 +514,7 @@ int main(int argc, char **argv)
 		int c;
 		int index = 0;
 
-		c = getopt_long(argc, argv, "u:o:hlsae:x:b:H", longopts, &index);
+		c = getopt_long(argc, argv, "u:o:hlae:x:b:", longopts, &index);
 		if (c == -1)
 			break;
 
@@ -744,11 +530,8 @@ int main(int argc, char **argv)
 			case 'l' :
 				cmd = cmd_list;
 				break;
-			case 's' :
-				cmd = cmd_scriptlist;
-				break;
 			case 'a' :
-				cmd = cmd_autobind;
+				cmd = cmd_allusbip;
 				break;
 			case 'b':
 				busid = optarg;
@@ -760,9 +543,6 @@ int main(int argc, char **argv)
 			case 'x':
 				cmd = cmd_unexport;
 				remote_host = optarg;
-				break;
-			case 'H':
-				cmd = cmd_hotplug;
 				break;
 			case 'h': /* fallthrough */
 			case '?':
@@ -786,20 +566,14 @@ int main(int argc, char **argv)
 		case cmd_list:
 			show_devices();
 			break;
-		case cmd_scriptlist:
-			show_devices_script();
-			break;
-		case cmd_autobind:
-			auto_bind();
+		case cmd_allusbip:
+			allusbip();
 			break;
 		case cmd_export_to:
 			export_to(remote_host, busid);
 			break;
 		case cmd_unexport:
 			unexport_from(remote_host, busid);
-			break;
-		case cmd_hotplug:
-			hotplug();
 			break;
 		case cmd_help: /* fallthrough */
 		case cmd_unknown:
