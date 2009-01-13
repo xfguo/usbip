@@ -1,0 +1,31 @@
+
+For newer kernels ( >=2.6.28 ), try linux-staging code!
+
+This directory contains the source code of usbip drivers for mainline kernel.
+
+[How to make USB/IP drivers]
+	1. cd $(top)/drivers/{version}/
+
+	2. make KSOURCE=/usr/src/kernel-source-2.6.20
+
+		KSOURCE is the directory that your kernel was built.
+
+	3. If succeed, usbip_common_mod.ko, vhci-hcd.ko and usbip.ko are built.
+
+	4. Copy these kernel modules to client and server hosts.
+
+	5. Don't forget to make USB/IP tools. See $(top)/src/README.
+
+[Tips]
+	Read http://usbip.wiki.sourceforge.net/how-to-debug-usbip .
+
+	If you want to see a lot of debug messages,
+		make KSOURCE=/usr/src/kernel-source-2.6.15 DEBUG=y
+
+	It is also a good idea to recompile your kernel with CONFIG_USB_DEBUG
+	and CONFIG_USB_STORAGE_DEBUG flags.
+
+	To disable debug output temporaly, write 0 to usbip_debug.
+	If you use ZSH,
+	   echo 0 >| /sys/bus/platform/drivers/vhci_hcd/vhci_hcd/usbip_debug
+	   echo 0 >| /sys/bus/usb/drivers/usbip/*/usbip_debug
