@@ -1,3 +1,6 @@
+
+For newer kernels ( >=2.6.28 ), try linux-staging code!
+
 This directory contains the source code of usbip drivers for mainline kernel.
 
 [How to make USB/IP drivers]

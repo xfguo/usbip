@@ -1,6 +1,9 @@
 # vim:tw=78:ts=4:expandtab:ai:sw=4
 # $Id$
 
+usbip-0.1.7
+    - Remove: temporarily contributed auto-import-daemon code
+
 usbip-0.1.6
     - Fix: inet_shutdown()'s argment bug
     - Add: support 2.6.24 and 2.6.25

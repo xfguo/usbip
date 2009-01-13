@@ -5,7 +5,6 @@
  */
 
 #include "utils.h"
-#include "usbip_export.h"
 
 #define _GNU_SOURCE
 #include <getopt.h>
@@ -17,13 +16,13 @@ static const struct option longopts[] = {
 	{"usbip",	required_argument,	NULL, 'u'},
 	{"other",	required_argument,	NULL, 'o'},
 	{"list",	no_argument,		NULL, 'l'},
-	{"allusbip",	no_argument,		NULL, 'a'},
-
 	{"help",	no_argument,		NULL, 'h'},
-
+#if 0
+	{"allusbip",	no_argument,		NULL, 'a'},
 	{"export-to",   required_argument,	NULL, 'e'},
 	{"unexport",    required_argument,	NULL, 'x'},
 	{"busid",	required_argument,	NULL, 'b'},
+#endif
 
 	{NULL,		0,			NULL,  0}
 };
@@ -40,9 +39,11 @@ static void show_help(void)
 	printf("  --list               print usb devices and their drivers\n");
 	printf("  --allusbip           make all devices exportable\n");
 
+#if 0
 	printf("  --export-to host     export the device to 'host'\n");
 	printf("  --unexport host      unexport a device previously exported to 'host'\n");
 	printf("  --busid busid        the busid used for --export-to\n");
+#endif
 }
 
 static int modify_match_busid(char *busid, int add)
@@ -378,6 +379,7 @@ static int show_devices(void)
 }
 
 
+#if 0
 static int export_to(char *host, char *busid) {
 
 	int ret;
@@ -490,6 +492,7 @@ static int allusbip(void)
 
 	return 0;
 }
+#endif
 
 int main(int argc, char **argv)
 {
@@ -566,6 +569,7 @@ int main(int argc, char **argv)
 		case cmd_list:
 			show_devices();
 			break;
+#if 0
 		case cmd_allusbip:
 			allusbip();
 			break;
@@ -575,6 +579,7 @@ int main(int argc, char **argv)
 		case cmd_unexport:
 			unexport_from(remote_host, busid);
 			break;
+#endif
 		case cmd_help: /* fallthrough */
 		case cmd_unknown:
 			show_help();
