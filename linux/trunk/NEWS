@@ -3,6 +3,7 @@
 
 usbip-0.1.7
     - Remove: temporarily contributed auto-import-daemon code
+    - Add: info about linux-staging
 
 usbip-0.1.6
     - Fix: inet_shutdown()'s argment bug
