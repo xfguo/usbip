@@ -16,6 +16,7 @@ static const struct option longopts[] = {
 	{"usbip",	required_argument,	NULL, 'u'},
 	{"other",	required_argument,	NULL, 'o'},
 	{"list",	no_argument,		NULL, 'l'},
+	{"list2",	no_argument,		NULL, 'L'},
 	{"help",	no_argument,		NULL, 'h'},
 #if 0
 	{"allusbip",	no_argument,		NULL, 'a'},
@@ -37,6 +38,7 @@ static void show_help(void)
 	printf("  --usbip busid        make a device exportable\n");
 	printf("  --other busid        use a device by a local driver\n");
 	printf("  --list               print usb devices and their drivers\n");
+	printf("  --list2              print usb devices and their drivers in parseable mode\n");
 	printf("  --allusbip           make all devices exportable\n");
 
 #if 0
@@ -378,6 +380,50 @@ static int show_devices(void)
 	return 0;
 }
 
+static int show_devices2(void)
+{
+	DIR *dir;
+
+	dir = opendir("/sys/bus/usb/devices/");
+	if (!dir)
+		g_error("opendir: %s", strerror(errno));
+
+	for (;;) {
+		struct dirent *dirent;
+		char *busid;
+
+		dirent = readdir(dir);
+		if (!dirent)
+			break;
+
+		busid = dirent->d_name;
+
+		if (is_usb_device(busid)) {
+			char name[100] = {'\0'};
+			char driver[100] =  {'\0'};
+			int conf, ninf = 0;
+			int i;
+
+			conf = read_bConfigurationValue(busid);
+			ninf = read_bNumInterfaces(busid);
+
+			getdevicename(busid, name, sizeof(name));
+
+			printf("busid=%s#usbid=%s#", busid, name);
+
+			for (i = 0; i < ninf; i++) {
+				getdriver(busid, conf, i, driver, sizeof(driver));
+				printf("%s:%d.%d=%s#", busid, conf, i, driver);
+			}
+			printf("\n");
+		}
+	}
+
+	closedir(dir);
+
+	return 0;
+}
+
 
 #if 0
 static int export_to(char *host, char *busid) {
@@ -504,6 +550,7 @@ int main(int argc, char **argv)
 		cmd_use_by_usbip,
 		cmd_use_by_other,
 		cmd_list,
+		cmd_list2,
 		cmd_allusbip,
 		cmd_export_to,
 		cmd_unexport,
@@ -517,7 +564,7 @@ int main(int argc, char **argv)
 		int c;
 		int index = 0;
 
-		c = getopt_long(argc, argv, "u:o:hlae:x:b:", longopts, &index);
+		c = getopt_long(argc, argv, "u:o:hlLae:x:b:", longopts, &index);
 		if (c == -1)
 			break;
 
@@ -532,6 +579,9 @@ int main(int argc, char **argv)
 				break;
 			case 'l' :
 				cmd = cmd_list;
+				break;
+			case 'L' :
+				cmd = cmd_list2;
 				break;
 			case 'a' :
 				cmd = cmd_allusbip;
@@ -568,6 +618,9 @@ int main(int argc, char **argv)
 			break;
 		case cmd_list:
 			show_devices();
+			break;
+		case cmd_list2:
+			show_devices2();
 			break;
 #if 0
 		case cmd_allusbip:
