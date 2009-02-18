@@ -22,9 +22,10 @@
 				USB/IP Project aims to develop a general USB device
 				sharing system over IP network. To share USB devices
 				between computers with their full functionality, USB/IP
-				encapsulates "USB I/O messages" into IP packets and
+				encapsulates "USB I/O messages" into TCP/IP payloads and
 				transmits them between computers.
-				<a href="http://sourceforge.net/project/showfiles.php?group_id=122798&package_id=134103">Download the latest code</a>.
+				<a href="http://sourceforge.net/project/showfiles.php?group_id=122798&package_id=134103">Download the latest code</a>,
+				or <a href="http://sourceforge.net/svn/?group_id=122798">check it out by Subversion</a>.
 				</p>
 				<p>
 				Updated at Jan 13, 2009: A couple of months ago, the latest drivers were included in the linux-staging tree.
@@ -65,7 +66,7 @@
 					<p>
 					The USB/IP Project aims to develop a general USB device sharing system over IP network.
 					To share USB devices between computers with their full functionality,
-					USB/IP encapsulates "USB I/O messages" into IP packets and transmits them between computers.
+					USB/IP encapsulates "USB I/O messages" into TCP/IP payloads and transmits them between computers.
 					Original USB device drivers and applications can be also used for remote USB devices without any modification of them.
 
 					A computer can use remote USB devices as if they were directly attached; for example, we can ...
@@ -92,9 +93,9 @@
 					In a client host, the VHCI (Virtual Host Controller Interface) driver is implemented as a USB host controller driver.
 					The VHCI driver emulates a real USB host controller interface
 					for virtual attachment/detachment, enumeration and initialization of remote USB devices.
-					It encapsulates USB request blocks and then transmits USB/IP packets to remote server hosts.
+					It encapsulates USB request blocks and then transmits USB/IP requests to remote server hosts.
 					In a server host, the Stub driver is implemented as a USB per-device driver.
-					The Stub driver decapsulates USB/IP packets into USB requests and then submit them to real USB devices.
+					The Stub driver decapsulates USB/IP requests into USB requests and then submit them to real USB devices.
 					</p>
 
 					<div align="center" class="figure">

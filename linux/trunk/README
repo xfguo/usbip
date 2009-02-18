@@ -7,12 +7,12 @@
 
 Overview
     The USB/IP Project aims to develop a general USB device sharing system
-    over IP network. To share USB devices between computers with their
-    full functionality, USB/IP encapsulates "USB requests" into IP packets
-    and transmits them between computers. Original USB device drivers and
+    over IP network. To share USB devices between computers with their full
+    functionality, USB/IP encapsulates "USB requests" into TCP/IP payloads and
+    transmits them between computers. Original USB device drivers and
     applications can be also used for remote USB devices without any
-    modification of them.  A computer can use remote USB devices as if
-    they were directly attached; for example, we can ...
+    modification of them.  A computer can use remote USB devices as if they
+    were directly attached; for example, we can ...
 
         - USB storage devices: fdisk, mkfs, mount/umount, file operations,
           play a DVD movie and record a DVD-R media.  
@@ -31,9 +31,9 @@ Overview
     emulates a real USB host controller interface for virtual
     attachment/detachment, enumeration and initialization of remote USB
     devices. It encapsulates USB request blocks and then transmits USB/IP
-    packets to a remote host. On the other host, the Stub driver is
+    requests to a remote host. On the other host, the Stub driver is
     implemented as a USB per-device driver. The Stub driver decapsulates
-    USB/IP packets into USB requests and then submit them to real USB
+    USB/IP requests into USB requests and then submit them to real USB
     devices. 
 
     For more information, please see http://usbip.sourceforge.net/ .
