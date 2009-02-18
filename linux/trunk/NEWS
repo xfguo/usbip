@@ -1,23 +1,27 @@
 # vim:tw=78:ts=4:expandtab:ai:sw=4
 # $Id$
 
-unreleased
-    - Rename: bind_driver to usbip_bind_driver
+usbip-0.1.8
+    - Cleanup: bind_driver to usbip_bind_driver
+    - Add: make the location of the vhci's status file configurable
+    - Fix: install binaries into sbin
+    - Add: add manpages
+    - Add: add --list2 option to bind_driver.
 
 usbip-0.1.7
-    - Remove: temporarily contributed auto-import-daemon code
+    - Remove: temporally remove contributed auto-import-daemon code
     - Add: info about linux-staging
 
 usbip-0.1.6
-    - Fix: inet_shutdown()'s argment bug
+    - Fix: inet_shutdown()'s argument bug
     - Add: support 2.6.24 and 2.6.25
     - Add: compatibility code after 2.6.16 
     - Add: the basic header cleanup for future other operating system
            support
-    - Add: some code that might fix reset issues (after 2.6.24 only)
-    - Add: some code about power managment in 2.6.24
+    - Fix: some code that might fix reset issues (after 2.6.24 only)
+    - Add: some code about power management in 2.6.24
     - Add: some code about tracking URBs in 2.6.24
-    - Fix: connection termination caused by isochrounous urbs with no
+    - Fix: connection termination caused by isochronous urbs with no
            isochronous descriptor
 
 usbip-0.1.5
@@ -112,7 +116,7 @@ usbip-20041207-0
         support Low/Full speed mode (manual config only)
         stub.ko
             purge stub_list_priv.c
-            suport unlink message
+            support unlink message
 
 usbip-20041203-0
     - minor fix
