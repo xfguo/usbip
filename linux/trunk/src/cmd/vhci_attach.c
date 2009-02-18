@@ -84,9 +84,9 @@ static int record_connection(char *host, char *port, char *busid, int rhport)
 	char buff[MAX_BUFF+1];
 	int ret;
 
-	mkdir("/tmp/vhci_hcd", 0700);
+	mkdir(VHCI_STATE_PATH, 0700);
 
-	snprintf(path, PATH_MAX, "/tmp/vhci_hcd/port%d", rhport);
+	snprintf(path, PATH_MAX, VHCI_STATE_PATH"/port%d", rhport);
 
 	fd = open(path, O_WRONLY|O_CREAT|O_TRUNC, S_IRWXU);
 	if (fd < 0)
@@ -111,7 +111,7 @@ static int read_record(int rhport, char *host, char *port, char *busid)
 	FILE *file;
 	char path[PATH_MAX+1];
 
-	snprintf(path, PATH_MAX, "/tmp/vhci_hcd/port%d", rhport);
+	snprintf(path, PATH_MAX, VHCI_STATE_PATH"/port%d", rhport);
 
 	file = fopen(path, "r");
 	if (!file) {
