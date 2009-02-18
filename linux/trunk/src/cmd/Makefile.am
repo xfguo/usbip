@@ -1,6 +1,6 @@
 # $Id$
 
-bin_PROGRAMS = usbip usbipd usbip_bind_driver
+sbin_PROGRAMS = usbip usbipd usbip_bind_driver
 
 usbip_SOURCES = vhci_attach.c usbip_network.c usbip_network.h
 usbipd_SOURCES = stub_server.c usbip_network.c usbip_network.h
