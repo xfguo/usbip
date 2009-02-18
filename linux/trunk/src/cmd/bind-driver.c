@@ -33,7 +33,7 @@ static const char match_busid_path[] = "/sys/bus/usb/drivers/usbip/match_busid";
 
 static void show_help(void)
 {
-	printf("Usage: bind-driver [OPTION]\n");
+	printf("Usage: usbip_bind_driver [OPTION]\n");
 	printf("Change driver binding for USB/IP.\n");
 	printf("  --usbip busid        make a device exportable\n");
 	printf("  --other busid        use a device by a local driver\n");

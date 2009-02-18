@@ -1,6 +1,9 @@
 # vim:tw=78:ts=4:expandtab:ai:sw=4
 # $Id$
 
+unreleased
+    - Rename: bind_driver to usbip_bind_driver
+
 usbip-0.1.7
     - Remove: temporarily contributed auto-import-daemon code
     - Add: info about linux-staging

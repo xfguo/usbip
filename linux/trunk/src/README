@@ -41,13 +41,13 @@
     server:# usbipd -D
         - Start usbip daemon.
 
-    server:# bind_driver --list
+    server:# usbip_bind_driver --list
         - List driver assignments for usb devices.
 
-    server:# bind_driver --usbip 1-2
+    server:# usbip_bind_driver --usbip 1-2
         - Bind usbip.ko to the device of busid 1-2.
         - A usb device 1-2 is now exportable to other hosts!
-        - Use 'bind_driver --other 1-2' when you want to shutdown exporting
+        - Use 'usbip_bind_driver --other 1-2' when you want to shutdown exporting
           and use the device locally. 
 
 
@@ -83,7 +83,7 @@ usb-storage driver. To export this device, we first mark the device as
 "exportable"; the device is bound to usbip driver. Please remember you can not
 export a usb hub.
 
-   trois:# bind_driver --list
+   trois:# usbip_bind_driver --list
    List USB devices
    - busid 3-3.2 (04bb:0206)
        3-3.2:1.0 -> usb-storage
@@ -112,12 +112,12 @@ export a usb hub.
 --------------------------------------------------------------------------------------------------------
 Mark the device of busid 3-3.2 as exportable.
 
-   trois:# bind_driver --usbip 3-3.2
+   trois:# usbip_bind_driver --usbip 3-3.2
    ** (process:24621): DEBUG:  3-3.2:1.0   -> none 
    ** (process:24621): DEBUG: write "add 3-3.2" to /sys/bus/usb/drivers/usbip/match_busid
    ** Message: bind 3-3.2 to usbip, complete!
    
-   trois:# bind_driver --list
+   trois:# usbip_bind_driver --list
    List USB devices
    - busid 3-3.2 (04bb:0206)
            3-3.2:1.0 -> usbip
