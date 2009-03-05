@@ -17,5 +17,5 @@ dist_man_MANS = usbip.8 usbipd.8 usbip_bind_driver.8
 INCLUDES = -I$(top_srcdir)/lib
 LDADD = ../lib/libusbip.la @PACKAGE_LIBS@
 EXTRA_CFLAGS = @EXTRA_CFLAGS@
-AM_CFLAGS = -Wall -W -Wstrict-prototypes -std=gnu99 $(EXTRA_CFLAGS) @PACKAGE_CFLAGS@
+AM_CFLAGS = -Wall -W -Wstrict-prototypes -std=gnu99 $(EXTRA_CFLAGS) @PACKAGE_CFLAGS@ -DUSBIDS_FILE='"@USBIDS_DIR@/usb.ids"'
 
