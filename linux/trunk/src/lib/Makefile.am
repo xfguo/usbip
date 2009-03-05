@@ -5,6 +5,6 @@ libusbip_la_SOURCES = names.c names.h stub_driver.c stub_driver.h usbip.h usbip_
 #INCLUDES = -I../include
 #AM_CPPFLAGS = -I../include -Wall -std=gnu99
 libusbip_la_LDFLAGS = -version-info 0:1:0
-EXTRA_CFLAGS = @EXTRA_CLFAGS@
-libusbip_la_CFLAGS = -Wall -W -Wstrict-prototypes -std=gnu99 $(EXTRA_CLFAGS) -DUSBIDS_FILE='"@USBIDS_DIR@/usb.ids"'
+EXTRA_CFLAGS = @EXTRA_CFLAGS@
+libusbip_la_CFLAGS = -Wall -W -Wstrict-prototypes -std=gnu99 $(EXTRA_CFLAGS) -DUSBIDS_FILE='"@USBIDS_DIR@/usb.ids"'
 
