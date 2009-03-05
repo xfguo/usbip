@@ -8,7 +8,7 @@ usbip_bind_driver_SOURCES = bind-driver.c \
 		utils.c utils.h \
 		usbip_network.h usbip_network.c
 
-dist_man_MANS = usbip.8 usbipd.8
+dist_man_MANS = usbip.8 usbipd.8 usbip_bind_driver.8
 
 #usbip_bind_driver_CFLAGS = -Wall -W -Wstrict-prototypes @PACKAGE_CFLAGS@
 #usbip_bind_driver_LDADD = @PACKAGE_LIBS@
