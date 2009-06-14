@@ -143,7 +143,7 @@ void show_time(void)
 {
 	struct timeval tv;
 	gettimeofday(&tv, NULL);
-	dbg("\n%u.%u: ",tv.tv_sec, tv.tv_usec);
+	dbg("\n%lu.%lu: ",tv.tv_sec, tv.tv_usec);
 }
 
 static int send_reply_devlist(int sockfd)
@@ -250,14 +250,14 @@ static void correct_endian_basic(struct usbip_header_basic *base, int send)
 	}
 }
 
-void cpu_to_be32s(unsigned int *a)
+void cpu_to_be32s(int *a)
 {
-	*a=htonl(*a);
+	*a=htonl((unsigned int)*a);
 }
 
-void be32_to_cpus(unsigned int *a)
+void be32_to_cpus(int *a)
 {
-	*a=ntohl(*a);
+	*a=ntohl((unsigned int)*a);
 }
 
 static void correct_endian_cmd_submit(struct usbip_header_cmd_submit *pdu, int send)
@@ -359,11 +359,39 @@ static inline int is_in_ep(unsigned  int ep_num)
 	return ep_num & 0x80;
 }
 
+static void dump_urb(struct usbdevfs_urb *urb)
+{
+	dbg("type:%d\n"
+		"endpoint:%d\n"
+		"stauts:%d\n"
+		"flags:%d\n"
+		"buffer:%p\n"
+		"buffer_length:%d\n"
+		"actual_length:%d\n"
+		"start_frame:%d\n"
+		"number_of_packets:%d\n"
+		"error_count:%d\n"
+		"signr:%u\n"
+		"usercontext:%p\n",
+		urb->type,
+		urb->endpoint,
+		urb->status,
+		urb->flags,
+		urb->buffer,
+		urb->buffer_length,
+		urb->actual_length,
+		urb->start_frame,
+		urb->number_of_packets,
+		urb->error_count,
+		urb->signr,
+		urb->usercontext);
+}
+
 static void usbip_dump_header(struct usbip_header *pdu)
 {
 	struct timeval tv;
 	gettimeofday(&tv, NULL);
-	dbg("%u.%u: ",tv.tv_sec, tv.tv_usec);
+	dbg("%lu.%lu: ",tv.tv_sec, tv.tv_usec);
 	dbg("BASE: cmd %u seq %u devid %u dir %u ep %u\n",
 			pdu->base.command,
 			pdu->base.seqnum,
@@ -454,7 +482,6 @@ static int stub_send_ret_submit(struct usbip_exported_device *edev)
 	struct usbdevfs_urb *urb;
 	int ret, len;
 	char buf[100000];
-	unsigned int ep;
 	int is_ctrl;
 	while (1){
 		ret = ioctl(edev->usbfs_fd, USBDEVFS_REAPURBNDELAY, &aurb);
@@ -524,45 +551,21 @@ static int stub_send_ret_unlink(int fd, int seqnum, int status)
 	return 0;
 }
 
-static int stub_recv_cmd_unlink(struct usbip_exported_device *edev, 
+static int cancel_urb(struct dlist * processing_urbs, unsigned int seqnum, int fd);
+
+static int stub_recv_cmd_unlink(struct usbip_exported_device *edev,
 		struct usbip_header *pdu)
 {
 	int ret;
 	show_time();
-	ret=cancel_urb(edev->processing_urbs, 
+	ret=cancel_urb(edev->processing_urbs,
 			pdu->u.cmd_unlink.seqnum,
 			edev->usbfs_fd);
 	stub_send_ret_unlink(edev->client_fd, pdu->base.seqnum, -ECONNRESET);
 	return 0;
 }
 
-void dump_urb(struct usbdevfs_urb *urb)
-{
-	dbg("type:%d\n"
-		"endpoint:%d\n"
-		"stauts:%d\n"
-		"flags:%d\n"
-		"buffer:%p\n"
-		"buffer_length:%d\n"
-		"actual_length:%d\n"
-		"start_frame:%d\n"
-		"number_of_packets:%d\n"
-		"error_count:%d\n"
-		"signr:%u\n"
-		"usercontext:%p\n",
-		urb->type,
-		urb->endpoint,
-		urb->status,
-		urb->flags,
-		urb->buffer,
-		urb->buffer_length,
-		urb->actual_length,
-		urb->start_frame,
-		urb->number_of_packets,
-		urb->error_count,
-		urb->signr,
-		urb->usercontext);
-}
+
 
 unsigned int get_transfer_flag(unsigned  int flag)
 {
@@ -575,18 +578,18 @@ unsigned int get_transfer_flag(unsigned  int flag)
 		USBDEVFS_URB_NO_INTERRUPT);
 }
 
-int cancel_urb(struct dlist * processing_urbs, unsigned int seqnum, int fd)
+static int cancel_urb(struct dlist * processing_urbs, unsigned int seqnum, int fd)
 {
 	AsyncURB * aurb;
 	int ret=-1;
 
 	dlist_for_each_data(processing_urbs, aurb, AsyncURB) {
 		if (seqnum == aurb->seqnum){
-			dbg("found seqnum %d, subseqnum %d\n", seqnum, 
+			dbg("found seqnum %d, subseqnum %d\n", seqnum,
 					aurb->sub_seqnum);
 			ret = ioctl(fd, USBDEVFS_DISCARDURB, aurb);
 			if(ret <0){
-				dbg("discard urb ret %d %m\n");
+				dbg("discard urb ret %d %m\n", ret);
 			} else {
 				if(aurb->sub_seqnum==0)
 					aurb->sub_seqnum = 0xffff;
@@ -649,7 +652,6 @@ err:
 static void stub_recv_cmd_submit(struct usbip_exported_device *edev,
 		struct usbip_header *pdu)
 {
-	struct usb_device *dev = &edev->udev;
 	AsyncURB *aurb;
 	struct usbdevfs_urb *urb;
 	int ret, data_len, is_ctrl;
@@ -659,7 +661,7 @@ static void stub_recv_cmd_submit(struct usbip_exported_device *edev,
 	if (pdu->u.cmd_submit.transfer_buffer_length > 0||is_ctrl) {
 		data_len = pdu->u.cmd_submit.transfer_buffer_length + 
 			(is_ctrl?8:0);
-	} else 
+	} else
 		data_len = 0;
 	aurb=malloc(sizeof(*aurb)+data_len);
 	if(NULL==aurb)
@@ -748,18 +750,43 @@ static int recv_client_pdu(struct usbip_exported_device *edev,int sockfd)
 	return 0;
 }
 
+void un_imported_dev(struct usbip_exported_device *edev)
+{
+
+	AsyncURB * aurb;
+	g_source_remove(edev->client_gio_id);
+	g_source_remove(edev->usbfs_gio_id);
+	close(edev->client_fd);
+	edev->client_fd=-1;
+	edev->status = SDEV_ST_AVAILABLE;
+
+	/* Clear all of submited urb */
+	dlist_for_each_data(edev->processing_urbs, aurb, AsyncURB) {
+		ioctl(edev->usbfs_fd, USBDEVFS_DISCARDURB, aurb);
+	}
+	while(0==ioctl(edev->usbfs_fd, USBDEVFS_REAPURBNDELAY, &aurb));
+	dlist_destroy(edev->processing_urbs);
+	edev->processing_urbs = dlist_new(sizeof(AsyncURB));
+        if(!edev->processing_urbs)
+		g_error("malloc");
+	/*  we perhaps should reset device
+	ioctl(edev->usbfs_fd, USBDEVFS_RESET);
+	*/
+}
+
 gboolean process_client_pdu(GIOChannel *gio, GIOCondition condition, gpointer data)
 {
 	int ret;
 	int client_fd;
+	struct usbip_exported_device *edev
+			= (struct usbip_exported_device *) data;
 
-	if (condition & (G_IO_ERR | G_IO_HUP | G_IO_NVAL))
-		g_error("unknown condition 1");
-
+	if (condition & (G_IO_ERR | G_IO_HUP | G_IO_NVAL)){
+		un_imported_dev(edev);
+		return 0;
+	}
 
 	if (condition & G_IO_IN) {
-		struct usbip_exported_device *edev 
-			= (struct usbip_exported_device *) data;
 		client_fd = g_io_channel_unix_get_fd(gio);
 		if(client_fd != edev->client_fd)
 			g_error("fd corrupt?");
@@ -772,7 +799,6 @@ gboolean process_client_pdu(GIOChannel *gio, GIOCondition condition, gpointer da
 
 gboolean process_device_urb(GIOChannel *gio, GIOCondition condition, gpointer data)
 {
-	int ret;
 	int fd;
 
 	if (condition & (G_IO_ERR | G_IO_HUP | G_IO_NVAL))
@@ -797,8 +823,6 @@ static int recv_request_export(int sockfd)
 	struct op_common reply;
 	struct usbip_exported_device *edev;
 	int found = 0;
-	int error = 0;
-	GIOChannel *gio;
 	struct sockaddr sa;
 	socklen_t len = sizeof(sa);
 
@@ -881,17 +905,21 @@ static int recv_request_import(int sockfd)
 		usbip_set_nodelay(sockfd);
 
 		/* export_device needs a TCP/IP socket descriptor */
-		ret = usbip_stub_export_device(edev, sockfd);
+		ret = usbip_stub_export_device(edev);
 		if (ret < 0)
 			error = 1;
 		edev->status = SDEV_ST_USED;
 		edev->client_fd = sockfd;
 		gio = g_io_channel_unix_new(sockfd);
-		g_io_add_watch(gio, (G_IO_IN | G_IO_ERR | G_IO_HUP | G_IO_NVAL),
+		edev->client_gio_id = g_io_add_watch(gio,
+				(G_IO_IN | G_IO_ERR | G_IO_HUP | G_IO_NVAL),
                                 process_client_pdu, edev);
+		g_io_channel_unref(gio);
 		gio = g_io_channel_unix_new(edev->usbfs_fd);
-		g_io_add_watch(gio, (G_IO_OUT | G_IO_ERR | G_IO_HUP | G_IO_NVAL),
+		edev->usbfs_gio_id = g_io_add_watch(gio,
+				(G_IO_OUT | G_IO_ERR | G_IO_HUP | G_IO_NVAL),
                                 process_device_urb, edev);
+		g_io_channel_unref(gio);
 
 	} else {
 		info("not found requested device %s", req.busid);
@@ -930,11 +958,6 @@ static int recv_pdu(int sockfd)
 		err("recv op_common, %d", ret);
 		return ret;
 	}
-
-
-	ret = usbip_stub_refresh_device_list();
-	if (ret < 0)
-		return -1;
 
 	switch(code) {
 		case OP_REQ_DEVLIST:

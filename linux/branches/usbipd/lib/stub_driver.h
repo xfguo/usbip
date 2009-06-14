@@ -28,6 +28,8 @@ struct usbip_exported_device {
 	int32_t status;
 	int usbfs_fd;
 	int client_fd;
+	int usbfs_gio_id;
+	int client_gio_id;
 	struct dlist * processing_urbs;
 	struct usb_device    udev;
 	struct usb_interface uinf[];
@@ -40,7 +42,7 @@ int usbip_stub_driver_open(void);
 void usbip_stub_driver_close(void);
 
 int usbip_stub_refresh_device_list(void);
-int usbip_stub_export_device(struct usbip_exported_device *edev, int sockfd);
+int usbip_stub_export_device(struct usbip_exported_device *edev);
 
 struct usbip_exported_device *usbip_stub_get_device(int num);
 #endif

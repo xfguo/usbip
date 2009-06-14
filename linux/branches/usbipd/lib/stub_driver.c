@@ -9,43 +9,7 @@
 #include <linux/usbdevice_fs.h>
 #include "usbip.h"
 
-static const char *usbip_stub_driver_name = "usbip";
-
-
 struct usbip_stub_driver *stub_driver;
-
-/* only the first interface value is true! */
-static int32_t read_attr_usbip_status(struct usb_device *udev)
-{
-	char attrpath[SYSFS_PATH_MAX];
-	struct sysfs_attribute *attr;
-	int value = 0;
-	int  ret;
-
-	snprintf(attrpath, SYSFS_PATH_MAX, "%s/%s:%d.%d/usbip_status",
-			udev->path, udev->busid,
-			udev->bConfigurationValue,
-			0);
-
-	attr = sysfs_open_attribute(attrpath);
-	if (!attr) {
-		err("open %s", attrpath);
-		return -1;
-	}
-
-	ret = sysfs_read_attribute(attr);
-	if (ret) {
-		err("read %s", attrpath);
-		sysfs_close_attribute(attr);
-		return -1;
-	}
-
-	value = atoi(attr->value);
-
-	sysfs_close_attribute(attr);
-
-	return value;
-}
 
 
 static void usbip_exported_device_delete(void *dev)
@@ -56,38 +20,6 @@ static void usbip_exported_device_delete(void *dev)
 	sysfs_close_device(edev->sudev);
 	free(dev);
 }
-
-#if 0
-do_init_dev(int fd)
-{
-	int ret;
-	struct usbdevfs_urb urb, *r_urb;
-	unsigned char setup1[8]={0,9,1,0,0,0,0,0};
-	unsigned char setup2[8]={1,0xb,0,0,0,0,0,0};
-	memset(&urb, 0, sizeof(urb));
-	urb.type=USBDEVFS_URB_TYPE_CONTROL;
-	urb.buffer=setup1;
-	urb.buffer_length=8;
-	ret=ioctl(fd, USBDEVFS_SUBMITURB, &urb);
-	dbg("ret %d\n",ret);
-	ret=ioctl(fd, USBDEVFS_REAPURB, &r_urb);
-	dbg("ret reap %d\n", ret);
-	if(r_urb!=&urb){
-		dbg("faint a faint\n");
-	}
-	memset(&urb, 0, sizeof(urb));
-	urb.type=USBDEVFS_URB_TYPE_CONTROL;
-	urb.buffer=setup2;
-	urb.buffer_length=8;
-	ret=ioctl(fd, USBDEVFS_SUBMITURB, &urb);
-	dbg("ret %d\n",ret);
-	ret=ioctl(fd, USBDEVFS_REAPURB, &r_urb);
-	dbg("ret reap %d\n", ret);
-	if(r_urb!=&urb){
-		dbg("faint a faint\n");
-	}
-}
-#endif
 
 static int usb_host_claim_interfaces(struct usbip_exported_device *edev)
 {
@@ -218,20 +150,6 @@ err:
 	return NULL;
 }
 
-
-static int check_new(struct dlist *dlist, struct sysfs_device *target)
-{
-	struct sysfs_device *dev;
-
-	dlist_for_each_data(dlist, dev, struct sysfs_device) {
-		if (!strncmp(dev->bus_id, target->bus_id, SYSFS_BUS_ID_SIZE))
-			/* found. not new */
-			return 0;
-	}
-
-	return 1;
-}
-
 static void delete_nothing(void *dev)
 {
 	/* do not delete anything. but, its container will be deleted. */
@@ -258,89 +176,8 @@ int export_device(char *busid)
 	return 0;
 }
 
-static int refresh_exported_devices(void)
-{
-	struct sysfs_device	*suinf;  /* sysfs_device of usb_interface */
-	struct dlist		*suinf_list;
-
-	struct sysfs_device	*sudev;  /* sysfs_device of usb_device */
-	struct dlist		*sudev_list;
-
-#if 0
-	sudev_list = dlist_new_with_delete(sizeof(struct sysfs_device), delete_nothing);
-
-	suinf_list = sysfs_get_driver_devices(stub_driver->sysfs_driver);
-	if (!suinf_list) {
-		printf("Bind usbip.ko to a usb device to be exportable!\n");
-		goto bye;
-	}
-
-	/* collect unique USB devices (not interfaces) */
-	dlist_for_each_data(suinf_list, suinf, struct sysfs_device) {
-
-		/* get usb device of this usb interface */
-		sudev = sysfs_get_device_parent(suinf);
-		if (!sudev) {
-			err("get parent dev of %s", suinf->name);
-			continue;
-		}
-
-		if (check_new(sudev_list, sudev)) {
-			dlist_unshift(sudev_list, sudev);
-		}
-	}
-
-	dlist_for_each_data(sudev_list, sudev, struct sysfs_device) {
-		struct usbip_exported_device *edev;
-
-		edev = usbip_exported_device_new(sudev->path);
-		if (!edev) {
-			err("usbip_exported_device new");
-			continue;
-		}
-
-		dlist_unshift(stub_driver->edev_list, (void *) edev);
-		stub_driver->ndevs++;
-	}
-
-
-	dlist_destroy(sudev_list);
-
-bye:
-#endif
-	return 0;
-}
-
-int usbip_stub_refresh_device_list(void)
-{
-	int ret;
-	return 0;
-#if 0
-	if (stub_driver->edev_list)
-		dlist_destroy(stub_driver->edev_list);
-
-	stub_driver->ndevs = 0;
-
-	stub_driver->edev_list = dlist_new_with_delete(sizeof(struct usbip_exported_device),
-			usbip_exported_device_delete);
-	if (!stub_driver->edev_list) {
-		err("alloc dlist");
-		return -1;
-	}
-
-	ret = refresh_exported_devices();
-	if (ret < 0)
-		return ret;
-
-	return 0;
-#endif
-}
-
 int usbip_stub_driver_open(void)
 {
-	int ret;
-
-
 	stub_driver = (struct usbip_stub_driver *) calloc(1, sizeof(*stub_driver));
 	if (!stub_driver) {
 		err("alloc stub_driver");
@@ -385,9 +222,8 @@ void usbip_stub_driver_close(void)
 	stub_driver = NULL;
 }
 
-int usbip_stub_export_device(struct usbip_exported_device *edev, int sockfd)
+int usbip_stub_export_device(struct usbip_exported_device *edev)
 {
-	int ret;
 	if (edev->status != SDEV_ST_AVAILABLE) {
 		info("device not available, %s", edev->udev.busid);
 		switch( edev->status ) {
