@@ -622,13 +622,16 @@ int submit_urb(int fd, AsyncURB *aurb, struct dlist * processing_urbs)
 			aurb->urb.buffer_length = this_len;
 			dump_urb(&aurb->urb);
 			ret = ioctl(fd, USBDEVFS_SUBMITURB, &aurb->urb);
-			if(ret<0)
+			if(ret<0){
+				err("ioctl last ret %d %m\n", ret);
 				goto err;
+			}
 			dlist_unshift(processing_urbs, (void *)aurb);
 			return 0;
 		}
 		t_aurb=calloc(1, sizeof(*aurb));
 		if(NULL==aurb){
+			err("malloc\n");
 			ret = -1;
 			goto err;
 		}
@@ -638,8 +641,10 @@ int submit_urb(int fd, AsyncURB *aurb, struct dlist * processing_urbs)
 		urb->buffer = aurb->data + (all_len-left_len-this_len);
 		urb->buffer_length = this_len;
 		ret = ioctl(fd, USBDEVFS_SUBMITURB, urb);
-		if(ret<0)
+		if(ret<0){
+			err("ioctl mid ret %d %m\n", ret);
 			goto err;
+		}
 		dlist_unshift(processing_urbs, (void *)t_aurb);
 	}
 	g_error("never reach here");
