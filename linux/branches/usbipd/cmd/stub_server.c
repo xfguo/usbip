@@ -43,6 +43,7 @@ struct usbip_header_basic {
 #define USBIP_CMD_UNLINK	0x0002
 #define USBIP_RET_SUBMIT	0x0003
 #define USBIP_RET_UNLINK	0x0004
+#define USBIP_RESET_DEV		0xFFFF
 	unsigned int command;
 
 	 /* sequencial number which identifies requests.
@@ -323,6 +324,8 @@ void usbip_header_correct_endian(struct usbip_header *pdu, int send)
 		cmd = pdu->base.command;
 
 	switch (cmd) {
+		case USBIP_RESET_DEV:
+			break;
 		case USBIP_CMD_SUBMIT:
 			correct_endian_cmd_submit(&pdu->u.cmd_submit, send);
 			break;
@@ -400,6 +403,8 @@ static void usbip_dump_header(struct usbip_header *pdu)
 			pdu->base.ep);
 
 	switch(pdu->base.command) {
+		case USBIP_RESET_DEV:
+			dbg("CMD_RESET:\n");
 		case USBIP_CMD_SUBMIT:
 			dbg("CMD_SUBMIT: x_flags %u x_len %u sf %u #p %u iv %u\n",
 					pdu->u.cmd_submit.transfer_flags,
@@ -719,7 +724,19 @@ static void stub_recv_cmd_submit(struct usbip_exported_device *edev,
 	return;
 }
 
-
+static void reset_dev(struct usbip_exported_device *edev, struct usbip_header *req)
+{
+	int ret;
+	struct usbip_header reply;
+	ret = ioctl(edev->usbfs_fd, USBDEVFS_RESET);
+	memcpy(&reply, req, sizeof(reply));
+	usbip_header_correct_endian(&reply, 1);
+	sleep(1); /* perhaps it is no need? */
+	ret = usbip_send(edev->client_fd, &reply, sizeof(reply));
+	if (ret != sizeof(reply))
+		g_error("send ret");
+	return;
+}
 
 static int recv_client_pdu(struct usbip_exported_device *edev,int sockfd)
 {
@@ -739,6 +756,9 @@ static int recv_client_pdu(struct usbip_exported_device *edev,int sockfd)
 		return 0;
 	}
 	switch (pdu.base.command) {
+		case USBIP_RESET_DEV:
+			reset_dev(edev, &pdu);
+			break;
 		case USBIP_CMD_UNLINK:
 			stub_recv_cmd_unlink(edev, &pdu);
 			break;
