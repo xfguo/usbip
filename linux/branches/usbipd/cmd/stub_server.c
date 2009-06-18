@@ -729,7 +729,8 @@ static void reset_dev(struct usbip_exported_device *edev, struct usbip_header *r
 	int ret;
 	struct usbip_header reply;
 	ret = ioctl(edev->usbfs_fd, USBDEVFS_RESET);
-	memcpy(&reply, req, sizeof(reply));
+	memset(&reply,0,sizeof(reply));
+	memcpy(&reply.base, &req->base, sizeof(reply.base));
 	usbip_header_correct_endian(&reply, 1);
 	ret = usbip_send(edev->client_fd, &reply, sizeof(reply));
 	if (ret != sizeof(reply))
