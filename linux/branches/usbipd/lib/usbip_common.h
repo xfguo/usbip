@@ -134,6 +134,8 @@ struct usb_device {
 
 #define to_string(s)	#s
 
+#define UNUSED(s) (void)s
+
 void dump_usb_interface(struct usb_interface *);
 void dump_usb_device(struct usb_device *);
 int read_usb_device(struct sysfs_device *sdev, struct usb_device *udev);

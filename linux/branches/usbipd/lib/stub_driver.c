@@ -92,7 +92,8 @@ static int claim_dev(struct usbip_exported_device *edev)
 #endif
     return 0;
 fail:
-    close(fd);
+    if(fd>=0)
+	close(fd);
     return -1;
 }
 
@@ -110,12 +111,6 @@ static struct usbip_exported_device *usbip_exported_device_new(char *sdevpath)
 	if (!edev->sudev) {
 		err("open %s", sdevpath);
 		goto err;
-	}
-
-	edev->processing_urbs = dlist_new(sizeof(AsyncURB));
-	if(!edev->processing_urbs) {
-		err("dlist_new_with_delete processing_urbs");
-		return NULL;
 	}
 
 	read_usb_device(edev->sudev, &edev->udev);
@@ -140,7 +135,7 @@ static struct usbip_exported_device *usbip_exported_device_new(char *sdevpath)
 
 	return edev;
 
-err: 
+err:
 	if (edev && edev->processing_urbs)
 		dlist_destroy(edev->processing_urbs);
 	if (edev && edev->sudev)
@@ -150,12 +145,22 @@ err:
 	return NULL;
 }
 
-static void delete_nothing(void *dev)
+void unexport_device(struct usbip_exported_device * deleted_edev)
 {
-	/* do not delete anything. but, its container will be deleted. */
+	struct usbip_exported_device * edev;
+	dlist_for_each_data(stub_driver->edev_list, edev,
+			struct usbip_exported_device) {
+		if (edev!=deleted_edev)
+			continue;
+		dlist_delete_before(stub_driver->edev_list);
+		dbg("delete edev ok\n");
+		stub_driver->ndevs--;
+		return;
+	}
+	err("can't found edev to deleted\n");
 }
 
-int export_device(char *busid)
+struct usbip_exported_device * export_device(char *busid)
 {
 	struct sysfs_device	*sudev;  /* sysfs_device of usb_device */
 	struct usbip_exported_device *edev;
@@ -163,17 +168,18 @@ int export_device(char *busid)
 	sudev=sysfs_open_device("usb", busid);
 	if(!sudev){
 		err("can't export devce busid %s", busid);
-		return -1;
+		return NULL;
 	}
 	edev = usbip_exported_device_new(sudev->path);
 	if (!edev) {
 		err("usbip_exported_device new");
-		return -1;
+		return NULL;
 	}
+	dbg("export dev edev: %p, usbfs fd: %d\n", edev, edev->usbfs_fd);
 	dlist_unshift(stub_driver->edev_list, (void *) edev);
 	stub_driver->ndevs++;
-	printf("%d\n", stub_driver->ndevs);
-	return 0;
+	dbg("%d devices exported\n", stub_driver->ndevs);
+	return edev;
 }
 
 int usbip_stub_driver_open(void)
@@ -220,25 +226,6 @@ void usbip_stub_driver_close(void)
 	free(stub_driver);
 
 	stub_driver = NULL;
-}
-
-int usbip_stub_export_device(struct usbip_exported_device *edev)
-{
-	if (edev->status != SDEV_ST_AVAILABLE) {
-		info("device not available, %s", edev->udev.busid);
-		switch( edev->status ) {
-			case SDEV_ST_ERROR:
-				info("     status SDEV_ST_ERROR");
-				break;
-			case SDEV_ST_USED:
-				info("     status SDEV_ST_USED");
-				break;
-			default:
-				info("     status unknown: 0x%x", edev->status);
-		}
-		return -1;
-	}
-	return 0;
 }
 
 struct usbip_exported_device *usbip_stub_get_device(int num)

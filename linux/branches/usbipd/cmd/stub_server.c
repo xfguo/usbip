@@ -432,7 +432,8 @@ static void usbip_dump_header(struct usbip_header *pdu)
 	}
 }
 
-AsyncURB * find_aurb(struct dlist * dlist, int seqnum, int sub_seqnum)
+AsyncURB * find_aurb(struct dlist * dlist, unsigned int seqnum,
+		unsigned int sub_seqnum)
 {
 	AsyncURB * aurb;
 	dlist_for_each_data(dlist, aurb, AsyncURB){
@@ -444,7 +445,8 @@ AsyncURB * find_aurb(struct dlist * dlist, int seqnum, int sub_seqnum)
 	return NULL;
 }
 
-int delete_aurb(struct dlist * dlist, int seqnum, int sub_seqnum)
+int delete_aurb(struct dlist * dlist, unsigned int seqnum, 
+		unsigned int sub_seqnum)
 {
 	AsyncURB *aurb;
 	dlist_for_each_data(dlist, aurb, AsyncURB){
@@ -780,7 +782,6 @@ void un_imported_dev(struct usbip_exported_device *edev)
 
 	AsyncURB * aurb;
 	g_source_remove(edev->client_gio_id);
-	g_source_remove(edev->usbfs_gio_id);
 	close(edev->client_fd);
 	edev->client_fd=-1;
 	edev->status = SDEV_ST_AVAILABLE;
@@ -791,12 +792,7 @@ void un_imported_dev(struct usbip_exported_device *edev)
 	}
 	while(0==ioctl(edev->usbfs_fd, USBDEVFS_REAPURBNDELAY, &aurb));
 	dlist_destroy(edev->processing_urbs);
-	edev->processing_urbs = dlist_new(sizeof(AsyncURB));
-        if(!edev->processing_urbs)
-		g_error("malloc");
-	/*  we perhaps should reset device
-	ioctl(edev->usbfs_fd, USBDEVFS_RESET);
-	*/
+	edev->processing_urbs = NULL;
 }
 
 gboolean process_client_pdu(GIOChannel *gio, GIOCondition condition, gpointer data)
@@ -808,7 +804,7 @@ gboolean process_client_pdu(GIOChannel *gio, GIOCondition condition, gpointer da
 
 	if (condition & (G_IO_ERR | G_IO_HUP | G_IO_NVAL)){
 		un_imported_dev(edev);
-		return 0;
+		return FALSE;
 	}
 
 	if (condition & G_IO_IN) {
@@ -825,17 +821,26 @@ gboolean process_client_pdu(GIOChannel *gio, GIOCondition condition, gpointer da
 gboolean process_device_urb(GIOChannel *gio, GIOCondition condition, gpointer data)
 {
 	int fd;
+	struct usbip_exported_device *edev = (struct usbip_exported_device *) data;
 
-	if (condition & (G_IO_ERR | G_IO_HUP | G_IO_NVAL))
-		g_error("unknown condition 2");
-
-
+	if (condition & (G_IO_ERR | G_IO_HUP | G_IO_NVAL)){
+		dbg("device disconnected?\n");
+		if(edev->status == SDEV_ST_USED)
+			un_imported_dev(edev);
+		else if(edev->status != SDEV_ST_AVAILABLE)
+			g_error("why it is not available\n");
+		g_source_remove(edev->usbfs_gio_id);
+		close(edev->usbfs_fd);
+		edev->usbfs_fd=-1;
+		unexport_device(edev);
+		return FALSE;
+	}
 	if (condition & G_IO_OUT) {
-		struct usbip_exported_device *edev 
-			= (struct usbip_exported_device *) data;
 		fd = g_io_channel_unix_get_fd(gio);
 		if(fd != edev->usbfs_fd)
 			g_error("fd corrupt?");
+		if(edev->status != SDEV_ST_USED)
+			g_error("why I have event when not imported?\n");
 		stub_send_ret_submit(edev);
 	}
 	return TRUE;
@@ -850,13 +855,14 @@ static int recv_request_export(int sockfd)
 	int found = 0;
 	struct sockaddr sa;
 	socklen_t len = sizeof(sa);
+	GIOChannel *gio;
 
 	bzero(&sa, sizeof(sa));
 	ret = getpeername(sockfd,(struct sockaddr *)&sa,  &len);
 	if(ret<0){
 		g_error("can't getpeername");
 	}
-	if((sa.sa_family ==AF_INET6 
+	if((sa.sa_family ==AF_INET6
 	  &&!memcmp(&((struct sockaddr_in6 *)&sa)->sin6_addr, &in6addr_loopback
 		  ,sizeof(in6addr_loopback)))
 	 ){
@@ -881,11 +887,23 @@ static int recv_request_export(int sockfd)
 			break;
 		}
 	}
-	if (!found) {
-		ret = export_device(req.udev.busid);
-	} else {
+	do {
 		ret = 0;
-	}
+		if(found)
+			break;
+
+		edev = export_device(req.udev.busid);
+		if(!edev){
+			ret = -1;
+			break;
+		}
+		gio = g_io_channel_unix_new(edev->usbfs_fd);
+		edev->usbfs_gio_id = g_io_add_watch(gio,
+			(G_IO_OUT | G_IO_ERR | G_IO_HUP | G_IO_NVAL),
+			process_device_urb, edev);
+		g_io_channel_unref(gio);
+	} while(0);
+
 	ret = usbip_send_op_common(sockfd, OP_REP_EXPORT, (ret==0 ? ST_OK : ST_NA));
 	if (ret < 0) {
 		err("send import reply");
@@ -894,8 +912,6 @@ static int recv_request_export(int sockfd)
 	return 0;
 }
 
-
-
 static int recv_request_import(int sockfd)
 {
 	int ret;
@@ -903,8 +919,9 @@ static int recv_request_import(int sockfd)
 	struct op_common reply;
 	struct usbip_exported_device *edev;
 	int found = 0;
-	int error = 0;
+	int error = 1;
 	GIOChannel *gio;
+	struct usb_device pdu_udev;
 
 	bzero(&req, sizeof(req));
 	bzero(&reply, sizeof(reply));
@@ -925,51 +942,41 @@ static int recv_request_import(int sockfd)
 		}
 	}
 
-	if (found) {
-		/* should set TCP_NODELAY for usbip */
-		usbip_set_nodelay(sockfd);
+	if(found && edev->status==SDEV_ST_AVAILABLE)
+		error = 0;
 
-		/* export_device needs a TCP/IP socket descriptor */
-		ret = usbip_stub_export_device(edev);
-		if (ret < 0)
-			error = 1;
-		edev->status = SDEV_ST_USED;
-		edev->client_fd = sockfd;
-		gio = g_io_channel_unix_new(sockfd);
-		edev->client_gio_id = g_io_add_watch(gio,
-				(G_IO_IN | G_IO_ERR | G_IO_HUP | G_IO_NVAL),
-                                process_client_pdu, edev);
-		g_io_channel_unref(gio);
-		gio = g_io_channel_unix_new(edev->usbfs_fd);
-		edev->usbfs_gio_id = g_io_add_watch(gio,
-				(G_IO_OUT | G_IO_ERR | G_IO_HUP | G_IO_NVAL),
-                                process_device_urb, edev);
-		g_io_channel_unref(gio);
-
-	} else {
-		info("not found requested device %s", req.busid);
-		error = 1;
-	}
 	ret = usbip_send_op_common(sockfd, OP_REP_IMPORT, (!error ? ST_OK : ST_NA));
 	if (ret < 0) {
 		err("send import reply");
-		return -1;
+		goto fail;
 	}
 
-	if (!error) {
-		struct usb_device pdu_udev;
+	if (error)
+		goto fail;
 
-		memcpy(&pdu_udev, &edev->udev, sizeof(pdu_udev));
-		pack_usb_device(1, &pdu_udev);
+	memcpy(&pdu_udev, &edev->udev, sizeof(pdu_udev));
+	pack_usb_device(1, &pdu_udev);
 
-		ret = usbip_send(sockfd, (void *) &pdu_udev, sizeof(pdu_udev));
-		if (ret < 0) {
-			err("send devinfo");
-			return -1;
-		}
+	ret = usbip_send(sockfd, (void *) &pdu_udev, sizeof(pdu_udev));
+	if (ret < 0) {
+		err("send devinfo");
+		goto fail;
 	}
-
+	edev->processing_urbs = dlist_new(sizeof(AsyncURB));
+	if(NULL==edev->processing_urbs)
+		g_error("can't malloc\n");
+	edev->status = SDEV_ST_USED;
+	usbip_set_nodelay(sockfd);
+	edev->client_fd = sockfd;
+	gio = g_io_channel_unix_new(sockfd);
+	edev->client_gio_id = g_io_add_watch(gio,
+		(G_IO_IN | G_IO_ERR | G_IO_HUP | G_IO_NVAL),
+		process_client_pdu, edev);
+		g_io_channel_unref(gio);
 	return 0;
+fail:
+	close(sockfd);
+	return -1;
 }
 
 static int recv_pdu(int sockfd)
@@ -992,6 +999,7 @@ static int recv_pdu(int sockfd)
 
 		case OP_REQ_IMPORT:
 			ret = recv_request_import(sockfd);
+			/* don't close sockfd */
 			break;
 
 		case OP_REQ_EXPORT:
@@ -1181,6 +1189,8 @@ gboolean process_comming_request(GIOChannel *gio, GIOCondition condition, gpoint
 {
 	int ret;
 
+	UNUSED(data);
+
 	if (condition & (G_IO_ERR | G_IO_HUP | G_IO_NVAL))
 		g_error("unknown condition 3");
 
@@ -1203,15 +1213,13 @@ gboolean process_comming_request(GIOChannel *gio, GIOCondition condition, gpoint
 	return TRUE;
 }
 
-
 static void do_standalone_mode(gboolean daemonize)
 {
 	int ret;
 	int lsock[MAXSOCK];
 	struct addrinfo *ai_head;
 	int n;
-
-
+	GIOChannel *gio;
 
 	ret = usbip_names_init(USBIDS_FILE);
 	if (ret)
@@ -1239,16 +1247,13 @@ static void do_standalone_mode(gboolean daemonize)
 		g_error("no socket to listen to");
 
 	for (int i = 0; i < n; i++) {
-		GIOChannel *gio;
 
 		gio = g_io_channel_unix_new(lsock[i]);
 		g_io_add_watch(gio, (G_IO_IN | G_IO_ERR | G_IO_HUP | G_IO_NVAL),
 				process_comming_request, NULL);
 	}
 
-
 	info("usbipd start (%s)", version);
-
 
 	main_loop = g_main_loop_new(FALSE, FALSE);
 	g_main_loop_run(main_loop);
