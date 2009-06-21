@@ -720,7 +720,8 @@ static void stub_recv_cmd_submit(struct usbip_exported_device *edev,
 	ret = submit_urb(edev->usbfs_fd, aurb, edev->processing_urbs);
 	if(ret<0){
 		dbg("submit ret %d %d %m\n",ret, errno);
-		g_error("submit urb");
+		info("unexport dev, perhaps client driver error\n");
+		un_imported_dev(edev);
 	}
 	/* urb is now ready to submit */
 	return;
