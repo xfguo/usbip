@@ -23,6 +23,15 @@ struct usbip_stub_driver {
 	struct dlist *edev_list;	/* list of exported device */
 };
 
+#define MAX_PROGRESS_IN_URB 10
+
+struct big_in_ep {
+	struct dlist * client_request_pdu; /* client_request not replyed */
+	struct dlist * submited_urbs; /* urbs submited, but not get return */
+	struct dlist * finished_urbs; /* reaped urbs, but no client_request */
+	unsigned int submited_count;
+};
+
 struct usbip_exported_device {
 	struct sysfs_device *sudev;
 	int32_t status;
@@ -30,11 +39,11 @@ struct usbip_exported_device {
 	int client_fd;
 	int usbfs_gio_id;
 	int client_gio_id;
+	struct big_in_ep * eps[128];
 	struct dlist * processing_urbs;
 	struct usb_device    udev;
 	struct usb_interface uinf[];
 };
-
 
 extern struct usbip_stub_driver *stub_driver;
 

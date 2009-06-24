@@ -488,16 +488,17 @@ static int stub_send_ret_submit(struct usbip_exported_device *edev)
 	struct usbip_header pdu_header;
 	struct usbdevfs_urb *urb;
 	int ret, len;
-	char buf[100000];
+	struct iovec iov[2];
+	int iov_count=1;
 	int is_ctrl;
 	while (1){
 		ret = ioctl(edev->usbfs_fd, USBDEVFS_REAPURBNDELAY, &aurb);
 		urb = &aurb->urb;
 	        if (ret < 0) {
 			if (errno == EAGAIN)
-        	        	return 0;
-            		g_error("husb: reap urb failed errno %d %m\n", errno);
-        	}
+				return 0;
+			g_error("husb: reap urb failed errno %d %m\n", errno);
+		}
 		if(aurb->sub_seqnum){
 			dbg("splited urb ret");
 			last_aurb = find_aurb(edev->processing_urbs, 
@@ -526,15 +527,16 @@ static int stub_send_ret_submit(struct usbip_exported_device *edev)
 		usbip_dump_header(&pdu_header);
 		usbip_header_correct_endian(&pdu_header, 1);
 		dump_urb(urb);
-		memcpy(buf, &pdu_header, sizeof(pdu_header));
+		iov[0].iov_base=&pdu_header;
+		iov[0].iov_len=sizeof(pdu_header);
 		len=sizeof(pdu_header);
 		if(is_in_ep(urb->endpoint)){
-			memcpy(buf+sizeof(pdu_header), aurb->data+(is_ctrl?8:0),
-					aurb->ret_len);
+			iov[1].iov_base = aurb->data+(is_ctrl?8:0);
+			iov[1].iov_len=aurb->ret_len;
+			iov_count=2;
 			len+=aurb->ret_len;
 		}
-		//fixme sndmsg
-		ret=usbip_send(edev->client_fd, buf, len);
+		ret=usbip_sendv(edev->client_fd, iov, iov_count);
 		if(ret!=len){
 			g_error("can't send pdu_header");
 		}

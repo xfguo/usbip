@@ -80,6 +80,23 @@ ssize_t usbip_recv(int sockfd, void *buff, size_t bufflen)
 	return usbip_xmit(sockfd, buff, bufflen, 0);
 }
 
+ssize_t usbip_sendv(int sockfd, struct iovec *iov, int io_count)
+{
+	int i,len,ret;
+	struct msghdr mhdr;
+	for(i=0,len=0;i<io_count;i++)
+		len+=iov[i].iov_len;
+	memset(&mhdr, 0, sizeof(mhdr));
+	mhdr.msg_iov=iov;
+	mhdr.msg_iovlen=io_count;
+	ret=sendmsg(sockfd, &mhdr, 0);
+	if(ret!=len){
+		dbg("why sendmsg don't send all msg out?");
+		return -1;
+	}
+	return ret;
+}
+
 ssize_t usbip_send(int sockfd, void *buff, size_t bufflen)
 {
 	return usbip_xmit(sockfd, buff, bufflen, 1);
