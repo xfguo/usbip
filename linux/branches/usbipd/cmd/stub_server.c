@@ -482,15 +482,35 @@ static void setup_ret_submit_pdu(struct usbip_header *rpdu, AsyncURB *aurb)
 	rpdu->u.ret_submit.error_count	= urb->error_count;
 }
 
+int try_submit_sub_urb(struct usbip_exported_device *edev, AsyncURB *aurb)
+{
+	int left_len = aurb->data_len - aurb->ret_len;
+	int this_len, ret;
+	this_len = (left_len>USBDEVFS_MAX_LEN)?
+		USBDEVFS_MAX_LEN:left_len;
+	if(this_len==0)
+		g_error("why this_len = 0");
+	aurb->urb.buffer = aurb->data + aurb->ret_len;
+	aurb->urb.buffer_length = this_len;
+	dump_urb(&aurb->urb);
+	ret = ioctl(edev->usbfs_fd, USBDEVFS_SUBMITURB, &aurb->urb);
+	if(ret<0){
+		err("ioctl last ret %d %m\n", ret);
+		return -1;
+	}
+	return 0;
+}
+
 static int stub_send_ret_submit(struct usbip_exported_device *edev)
 {
 	AsyncURB *aurb, *last_aurb;
 	struct usbip_header pdu_header;
 	struct usbdevfs_urb *urb;
-	int ret, len;
+	int ret, len, ep;
 	struct iovec iov[2];
 	int iov_count=1;
 	int is_ctrl;
+	struct big_in_ep * big_ep;
 	while (1){
 		ret = ioctl(edev->usbfs_fd, USBDEVFS_REAPURBNDELAY, &aurb);
 		urb = &aurb->urb;
@@ -501,7 +521,7 @@ static int stub_send_ret_submit(struct usbip_exported_device *edev)
 		}
 		if(aurb->sub_seqnum){
 			dbg("splited urb ret");
-			last_aurb = find_aurb(edev->processing_urbs, 
+			last_aurb = find_aurb(edev->processing_urbs,
 					aurb->seqnum, 0);
 			if(last_aurb==NULL){
 				dbg("perhaps unlinked urb");
@@ -511,6 +531,40 @@ static int stub_send_ret_submit(struct usbip_exported_device *edev)
 			delete_aurb(edev->processing_urbs, aurb->seqnum,
 					aurb->sub_seqnum);
 			continue;
+		}
+		if(aurb->big_bulk_in){
+			dbg("big bulk in sub urb ret");
+
+			len = aurb->ret_len + urb->actual_length;
+			if(urb->status==0
+				&&urb->actual_length==urb->buffer_length
+				&&len < aurb->data_len){
+				aurb->ret_len = len;
+				ret = try_submit_sub_urb(edev, aurb);
+				if(ret<0){
+					delete_aurb(edev->processing_urbs,
+					aurb->seqnum,0);
+					return -1;
+				}
+				continue;
+			} else {
+				/* this is a urb end
+				 * we need start next urb */
+				ep = aurb->urb.endpoint & 0x7f;
+				big_ep = edev->big_in_eps[ep];
+				big_ep->now_urb = dlist_shift(big_ep->waited_urbs);
+				if(big_ep->now_urb){
+					ret = try_submit_sub_urb(edev,
+							big_ep->now_urb);
+					if(ret<0){
+						delete_aurb(edev->processing_urbs,
+						aurb->seqnum,0);
+						return -1;
+					}
+					dlist_push(edev->processing_urbs,
+							big_ep->now_urb);
+				}
+			}
 		}
 		is_ctrl=is_ctrl_ep(urb->endpoint);
 		memset(&pdu_header, 0, sizeof(pdu_header));
@@ -611,7 +665,20 @@ static int cancel_urb(struct dlist * processing_urbs, unsigned int seqnum, int f
 	return ret;
 }
 
-//split urb 
+struct big_in_ep * new_big_in_ep()
+{
+	struct big_in_ep * r;
+	r=malloc(sizeof(*r));
+	if(NULL==r)
+		g_error("can't malloc big_in_ep\n");
+	r->waited_urbs = dlist_new(sizeof(AsyncURB));
+	if(NULL==r->waited_urbs)
+		g_error("can't new some dlist");
+	r->now_urb = NULL;
+	return r;
+}
+
+//split urb
 int submit_urb(int fd, AsyncURB *aurb, struct dlist * processing_urbs)
 {
 	int all_len, left_len, this_len, ret, sub_seqnum=0;
@@ -635,7 +702,7 @@ int submit_urb(int fd, AsyncURB *aurb, struct dlist * processing_urbs)
 				err("ioctl last ret %d %m\n", ret);
 				goto err;
 			}
-			dlist_unshift(processing_urbs, (void *)aurb);
+			dlist_push(processing_urbs, (void *)aurb);
 			return 0;
 		}
 		t_aurb=calloc(1, sizeof(*aurb));
@@ -654,7 +721,7 @@ int submit_urb(int fd, AsyncURB *aurb, struct dlist * processing_urbs)
 			err("ioctl mid ret %d %m\n", ret);
 			goto err;
 		}
-		dlist_unshift(processing_urbs, (void *)t_aurb);
+		dlist_push(processing_urbs, (void *)t_aurb);
 	}
 	g_error("never reach here");
 err:
@@ -663,12 +730,40 @@ err:
 	return ret;
 }
 
+int submit_bulk_in_urb(struct usbip_exported_device *edev, AsyncURB *aurb)
+{
+	unsigned int ep;
+	struct big_in_ep * big_ep;
+	int ret;
+	ep = aurb->urb.endpoint & 0x7f;
+	if(NULL==edev->big_in_eps[ep] && aurb->data_len
+			<= USBDEVFS_MAX_LEN)
+		return submit_urb(edev->usbfs_fd, aurb, edev->processing_urbs);
+	if(NULL==edev->big_in_eps[ep])
+		edev->big_in_eps[ep]=new_big_in_ep();
+	big_ep = edev->big_in_eps[ep];
+	if(big_ep->now_urb==NULL && aurb->data_len <=USBDEVFS_MAX_LEN)
+		return submit_urb(edev->usbfs_fd, aurb, edev->processing_urbs);
+	aurb->big_bulk_in=1;
+	if(big_ep->now_urb){
+		dlist_push(big_ep->waited_urbs, aurb);
+		return 0;
+	}
+	big_ep->now_urb = aurb;
+	ret = try_submit_sub_urb(edev, aurb);
+	if(0==ret){
+		dlist_push(edev->processing_urbs, aurb);
+		return 0;
+	} else
+		return -1;
+}
+
 static void stub_recv_cmd_submit(struct usbip_exported_device *edev,
 		struct usbip_header *pdu)
 {
 	AsyncURB *aurb;
 	struct usbdevfs_urb *urb;
-	int ret, data_len, is_ctrl;
+	int ret, data_len, is_ctrl, is_bulk_in;
 
 	is_ctrl = is_ctrl_ep(pdu->base.ep);
 
@@ -719,7 +814,15 @@ static void stub_recv_cmd_submit(struct usbip_exported_device *edev,
 		urb->type = USBDEVFS_URB_TYPE_BULK;
 
 	dump_urb(urb);
-	ret = submit_urb(edev->usbfs_fd, aurb, edev->processing_urbs);
+	if(pdu->base.direction == USBIP_DIR_IN &&
+			urb->type == USBDEVFS_URB_TYPE_BULK)
+		is_bulk_in=1;
+	else
+		is_bulk_in=0;
+	if(is_bulk_in)
+		ret = submit_bulk_in_urb(edev, aurb);
+	else
+		ret = submit_urb(edev->usbfs_fd, aurb, edev->processing_urbs);
 	if(ret<0){
 		dbg("submit ret %d %d %m\n",ret, errno);
 		info("unexport dev, perhaps client driver error\n");
@@ -784,6 +887,8 @@ void un_imported_dev(struct usbip_exported_device *edev)
 {
 
 	AsyncURB * aurb;
+	int i;
+	struct big_in_ep * big_in_ep;
 	g_source_remove(edev->client_gio_id);
 	close(edev->client_fd);
 	edev->client_fd=-1;
@@ -796,6 +901,15 @@ void un_imported_dev(struct usbip_exported_device *edev)
 	while(0==ioctl(edev->usbfs_fd, USBDEVFS_REAPURBNDELAY, &aurb));
 	dlist_destroy(edev->processing_urbs);
 	edev->processing_urbs = NULL;
+	for(i=0; i<128;i++){
+		big_in_ep = edev->big_in_eps[i];
+		if(!big_in_ep)
+			continue;
+		dlist_destroy(big_in_ep->waited_urbs);
+		big_in_ep->waited_urbs =NULL;
+		free(big_in_ep);
+		edev->big_in_eps[i]=NULL;
+	}
 }
 
 gboolean process_client_pdu(GIOChannel *gio, GIOCondition condition, gpointer data)
