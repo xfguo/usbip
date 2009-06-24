@@ -552,7 +552,11 @@ static int stub_send_ret_submit(struct usbip_exported_device *edev)
 				 * we need start next urb */
 				ep = aurb->urb.endpoint & 0x7f;
 				big_ep = edev->big_in_eps[ep];
-				big_ep->now_urb = dlist_shift(big_ep->waited_urbs);
+				if(big_ep->waited_urbs->count){
+					big_ep->now_urb = 
+					dlist_shift(big_ep->waited_urbs);
+				} else
+					big_ep->now_urb = NULL;
 				if(big_ep->now_urb){
 					ret = try_submit_sub_urb(edev,
 							big_ep->now_urb);
