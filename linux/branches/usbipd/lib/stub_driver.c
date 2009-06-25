@@ -6,19 +6,181 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
-#include <linux/usbdevice_fs.h>
 #include "usbip.h"
 
 struct usbip_stub_driver *stub_driver;
-
 
 static void usbip_exported_device_delete(void *dev)
 {
 	struct usbip_exported_device *edev =
 		(struct usbip_exported_device *) dev;
-
+	free(edev->eps[0]);
+	free(edev->eps[1]);
 	sysfs_close_device(edev->sudev);
 	free(dev);
+}
+
+static void * seek_to_next_desc(void *buf, size_t size, unsigned int * offset,
+		unsigned char type)
+{
+	unsigned int o=*offset;
+	struct usb_descriptor_header * desc;
+	if(o>=size)
+		return NULL;
+	do {
+		if(o + sizeof(*desc) > size)
+			return NULL;
+		desc = buf + o;
+		if(desc->bLength + o > size)
+			return NULL;
+		o+=desc->bLength;
+		if(desc->bDescriptorType == type){
+			*offset = o;
+			return desc;
+		}
+	}while(1);
+}
+
+static int add_ep_info(struct usbip_exported_device *edev,
+		struct usb_endpoint_descriptor *ep, int intf, int alter)
+{
+	int in, addr;
+	struct usbip_endpoint * uep;
+	if(ep->bEndpointAddress&USB_ENDPOINT_DIR_MASK)
+		in=1;
+	else
+		in=0;
+	addr=ep->bEndpointAddress&USB_ENDPOINT_NUMBER_MASK;
+	if(addr==0){
+		err("err, ep addr equal zero?");
+		return -1;
+	}
+	uep=&edev->eps[in][addr];
+	if(uep->valid){
+		err("duplicate endpoints");
+		return -1;
+	}
+	uep->type = ep->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK;
+	uep->valid = 1;
+	uep->intf = intf;
+	uep->alter = alter;
+	return 0;
+}
+
+static int parse_interface(struct usbip_exported_device *edev,
+		struct usb_config_descriptor *config,
+		unsigned int *offset, int int_num, int alter)
+{
+	struct usb_interface_descriptor * intf;
+	struct usb_endpoint_descriptor * ep;
+	int i;
+	do {
+		intf = seek_to_next_desc(config, config->wTotalLength,
+			offset, USB_DT_INTERFACE);
+		if(NULL==intf){
+			err("can't get intf");
+			return -1;
+		}
+		if(intf->bLength!=sizeof(*intf)){
+			err("intf size error");
+			return -1;
+		}
+		if(intf->bInterfaceNumber<int_num)
+			continue;
+		if(intf->bAlternateSetting<alter)
+			continue;
+		if(intf->bInterfaceNumber<int_num){
+			err("can't found int %d alter %d\n",int_num,alter);
+			return -1;
+		}
+		if(intf->bAlternateSetting>alter){
+			err("can't found int %d alter %d\n",int_num,alter);
+			return -1;
+		}
+		break;
+	}while(1);
+	for(i=0;i<intf->bNumEndpoints;i++){
+		ep = seek_to_next_desc(config, config->wTotalLength,
+			offset, USB_DT_ENDPOINT);
+		if(NULL==ep){
+			err("can't get ep");
+			return -1;
+		}
+		if(ep->bLength!=USB_DT_ENDPOINT_SIZE&&
+			ep->bLength!=USB_DT_ENDPOINT_AUDIO_SIZE){
+			err("ep size error");
+			return -1;
+		}
+		add_ep_info(edev, ep, int_num, alter);
+	}
+	return 0;
+}
+
+static int parse_config(struct usbip_exported_device * edev,
+		struct usb_config_descriptor * config)
+{
+	int i, ret;
+	unsigned int offset=0;
+	for(i=0; i< config->bNumInterfaces; i++){
+		ret=parse_interface(edev, config,
+				&offset, i, 0);
+		if(ret<0)
+			return -1;
+	}
+	return 0;
+}
+
+static int usb_parse_desc(struct usbip_exported_device *edev, int config_v)
+{
+	/* FIXME I suppose little endian */
+#define MAX_DESC_SIZE 65536
+	char * buf;
+	int ret, i;
+	unsigned int offset=0;
+	struct usb_device_descriptor * dev;
+	struct usb_config_descriptor * config;
+	buf = malloc(MAX_DESC_SIZE);
+	if(NULL==buf){
+		err("can't malloc %d bytes %m\n", MAX_DESC_SIZE);
+		return -1;
+	}
+	ret=read(edev->usbfs_fd, buf, MAX_DESC_SIZE);
+	if(ret<0){
+		err("can't read desc %m");
+		return -1;
+	}
+	if(ret==sizeof(MAX_DESC_SIZE)){
+		err("too big desc");
+		return -1;
+	}
+	dev = (struct usb_device_descriptor *)buf;
+	if(ret<sizeof(*dev)){
+		err("too short desc");
+		return -1;
+	}
+	if(config_v < 1 || config_v > dev->bNumConfigurations){
+		err("no such config");
+		return -1;
+	}
+	for(i=0;i<config_v;i++){
+		config = seek_to_next_desc(buf, ret, &offset, USB_DT_CONFIG);
+		if(NULL==config)
+			break;
+	}
+	if(config->bLength!=sizeof(*config)){
+		err("error length short config desc");
+		return -1;
+	}
+	if(offset + config->wTotalLength - config->bLength > ret){
+		err("error too long desc offset:%d len:%d",
+				offset, config->wTotalLength);
+		return -1;
+	}
+	if(config->bConfigurationValue != config_v){
+		err("error, can't find this config_v %d\n", config_v);
+		return -1;
+	}
+	return parse_config(edev, config);
 }
 
 static int usb_host_claim_interfaces(struct usbip_exported_device *edev)
@@ -63,6 +225,7 @@ static int claim_dev(struct usbip_exported_device *edev)
     int fd = -1;
     struct usb_device *dev = &edev->udev;
     char buf[1024];
+    int i,j;
 
     dbg("husb: open device %d.%d\n", dev->busnum, dev->devnum);
 
@@ -76,6 +239,17 @@ static int claim_dev(struct usbip_exported_device *edev)
     edev->usbfs_fd = fd;
     edev->client_fd = -1;
     dbg("opened %s\n", buf);
+    if (usb_parse_desc(edev, 1))
+	goto fail;
+    for(i=0; i<2;i++){
+	    for(j=1;j<16;j++){
+		    if(edev->eps[i][j].valid){
+			    dbg("in:%d addr %d, type: %d int: %d alter: %d\n",
+				i,j,edev->eps[i][j].type,
+				edev->eps[i][j].intf,edev->eps[i][j].alter);
+		    }
+	    }
+    }
     if (usb_host_claim_interfaces(edev))
         goto fail;
 #if 0
@@ -100,6 +274,7 @@ fail:
 static struct usbip_exported_device *usbip_exported_device_new(char *sdevpath)
 {
 	struct usbip_exported_device *edev = NULL;
+	int i;
 
 	edev = (struct usbip_exported_device *) calloc(1, sizeof(*edev));
 	if (!edev) {
@@ -111,6 +286,15 @@ static struct usbip_exported_device *usbip_exported_device_new(char *sdevpath)
 	if (!edev->sudev) {
 		err("open %s", sdevpath);
 		goto err;
+	}
+
+	for(i=0;i<2;i++){
+		edev->eps[i]=calloc(sizeof(*edev->eps[i]),
+				USB_ENDPOINT_NUMBER_MASK+1);
+		if(!edev->eps[i]){
+			err("alloc eps");
+			goto err;
+		}
 	}
 
 	read_usb_device(edev->sudev, &edev->udev);
@@ -140,8 +324,10 @@ err:
 		dlist_destroy(edev->processing_urbs);
 	if (edev && edev->sudev)
 		sysfs_close_device(edev->sudev);
-	if (edev)
-		free(edev);
+	if (edev && edev->eps[0])
+		free(edev->eps[0]);
+	if (edev && edev->eps[1])
+		free(edev->eps[1]);
 	return NULL;
 }
 

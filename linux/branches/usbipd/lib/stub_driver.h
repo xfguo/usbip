@@ -24,9 +24,13 @@ struct usbip_stub_driver {
 	struct dlist *edev_list;	/* list of exported device */
 };
 
-struct big_in_ep {
+struct usbip_endpoint {
 	struct dlist * waited_urbs;
 	AsyncURB * now_urb;
+	unsigned char type;
+	unsigned char valid;
+	unsigned char intf;
+	unsigned char alter;
 };
 
 struct usbip_exported_device {
@@ -36,7 +40,7 @@ struct usbip_exported_device {
 	int client_fd;
 	int usbfs_gio_id;
 	int client_gio_id;
-	struct big_in_ep * big_in_eps[128];
+	struct usbip_endpoint * eps[2];
 	struct dlist * processing_urbs;
 	struct usb_device    udev;
 	struct usb_interface uinf[];

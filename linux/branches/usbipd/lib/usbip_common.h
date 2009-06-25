@@ -19,6 +19,7 @@
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <linux/usbdevice_fs.h>
+#include <linux/usb/ch9.h>
 
 #ifndef USBIDS_FILE
 #define USBIDS_FILE "/usr/share/hwdata/usb.ids"
@@ -27,14 +28,6 @@
 #ifndef VHCI_STATE_PATH
 #define VHCI_STATE_PATH "/var/run/vhci_hcd"
 #endif
-
-//#include <linux/usb_ch9.h>
-enum usb_device_speed {
-	USB_SPEED_UNKNOWN = 0,                  /* enumerating */
-	USB_SPEED_LOW, USB_SPEED_FULL,          /* usb 1.1 */
-	USB_SPEED_HIGH,                         /* usb 2.0 */
-	USB_SPEED_VARIABLE                      /* wireless (usb 2.5) */
-};
 
 /* FIXME: how to sync with drivers/usbip_common.h ? */
 enum usbip_device_status{
@@ -109,8 +102,6 @@ struct usb_interface {
 	uint8_t bInterfaceProtocol;
 	uint8_t padding;	/* alignment */
 } __attribute__((packed));
-
-
 
 struct usb_device {
 	char path[SYSFS_PATH_MAX];
