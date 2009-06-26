@@ -139,6 +139,8 @@ struct usbip_header {
 }__attribute__ ((packed));
 
 #define USBDEVFS_MAX_LEN 16384
+#define USB_MAX_ISO_PACKET_SIZE 8192
+#define USBDEVFS_MAX_ISO_LEN 32768
 
 void show_time(void)
 {
@@ -347,13 +349,6 @@ void usbip_header_correct_endian(struct usbip_header *pdu, int send)
 	}
 }
 
-static inline int is_ctrl_ep(unsigned  int ep_num)
-{
-	int addr;
-	addr = ep_num & USB_ENDPOINT_NUMBER_MASK;
-	return !addr;
-}
-
 static inline int is_valid_ep(struct usbip_exported_device *edev,
 		struct usbip_header *pdu, int * is_ctrl, int * usbdevfs_type)
 {
@@ -386,30 +381,25 @@ out:
 	return 1;
 }
 
-static inline int is_out_ep(unsigned  int ep_num)
-{
-	return (ep_num & 0x80)==0;
-}
-
 static inline int is_in_ep(unsigned  int ep_num)
 {
-	return ep_num & 0x80;
+	return ep_num & USB_DIR_IN;
 }
 
 static void dump_urb(struct usbdevfs_urb *urb)
 {
 	dbg("type:%d\n"
-		"endpoint:%d\n"
+		"endpoint:0x%02x\n"
 		"stauts:%d\n"
-		"flags:%d\n"
-		"buffer:%p\n"
+		"flags:0x%08x\n"
+		"buffer:0x%p\n"
 		"buffer_length:%d\n"
 		"actual_length:%d\n"
 		"start_frame:%d\n"
 		"number_of_packets:%d\n"
 		"error_count:%d\n"
 		"signr:%u\n"
-		"usercontext:%p\n",
+		"usercontext:0x%p\n",
 		urb->type,
 		urb->endpoint,
 		urb->status,
@@ -541,20 +531,21 @@ static int stub_send_ret_submit(struct usbip_exported_device *edev)
 	struct usbip_header pdu_header;
 	struct usbdevfs_urb *urb;
 	int ret, len, ep;
-	struct iovec iov[2];
-	int iov_count=1;
+	struct iovec iov[3];
+	int ioc, offset, i;
 	int is_ctrl;
+	struct usbip_iso_packet_descriptor ip_iso_descs[128];
 	struct usbip_endpoint * big_ep;
-	while (1){
-		ret = ioctl(edev->usbfs_fd, USBDEVFS_REAPURBNDELAY, &aurb);
-		urb = &aurb->urb;
+	do {
+		ret = ioctl(edev->usbfs_fd, USBDEVFS_REAPURBNDELAY, &urb);
 	        if (ret < 0) {
 			if (errno == EAGAIN)
 				return 0;
 			g_error("husb: reap urb failed errno %d %m\n", errno);
 		}
+		aurb =  (AsyncURB *) ((char *)urb - offsetof(AsyncURB, urb));
 		if(aurb->sub_seqnum){
-			dbg("splited urb ret");
+			dbg("splited bulk urb ret");
 			last_aurb = find_aurb(edev->processing_urbs,
 					aurb->seqnum, 0);
 			if(last_aurb==NULL){
@@ -566,13 +557,16 @@ static int stub_send_ret_submit(struct usbip_exported_device *edev)
 					aurb->sub_seqnum);
 			continue;
 		}
-		if(aurb->big_bulk_in){
-			dbg("big bulk in sub urb ret");
+		if(aurb->urb.type == USBDEVFS_URB_TYPE_BULK &&
+			is_in_ep(aurb->urb.endpoint)){
+
+			dbg("bulk in urb ret");
 
 			len = aurb->ret_len + urb->actual_length;
 			if(urb->status==0
 				&&urb->actual_length==urb->buffer_length
 				&&len < aurb->data_len){
+				/* this is not the last urb */
 				aurb->ret_len = len;
 				ret = try_submit_sub_urb(edev, aurb);
 				if(ret<0){
@@ -586,7 +580,8 @@ static int stub_send_ret_submit(struct usbip_exported_device *edev)
 				 * we need start next urb */
 				ep = aurb->urb.endpoint & USB_ENDPOINT_NUMBER_MASK;
 				big_ep = &edev->eps[1][ep];
-				if(big_ep->waited_urbs->count){
+				if(big_ep->waited_urbs &&
+						big_ep->waited_urbs->count){
 					big_ep->now_urb =
 					dlist_shift(big_ep->waited_urbs);
 				} else
@@ -604,7 +599,7 @@ static int stub_send_ret_submit(struct usbip_exported_device *edev)
 				}
 			}
 		}
-		is_ctrl=is_ctrl_ep(urb->endpoint);
+		is_ctrl = (urb->type==USBDEVFS_URB_TYPE_CONTROL);
 		memset(&pdu_header, 0, sizeof(pdu_header));
 
 		aurb->ret_len += urb->actual_length;
@@ -619,21 +614,36 @@ static int stub_send_ret_submit(struct usbip_exported_device *edev)
 		usbip_dump_header(&pdu_header);
 		usbip_header_correct_endian(&pdu_header, 1);
 		dump_urb(urb);
-		iov[0].iov_base=&pdu_header;
-		iov[0].iov_len=sizeof(pdu_header);
-		len=sizeof(pdu_header);
-		if(is_in_ep(urb->endpoint)){
-			iov[1].iov_base = aurb->data+(is_ctrl?8:0);
-			iov[1].iov_len=aurb->ret_len;
-			iov_count=2;
-			len+=aurb->ret_len;
+		iov[0].iov_base = &pdu_header;
+		iov[0].iov_len = sizeof(pdu_header);
+		ioc=1;
+		if(is_in_ep(urb->endpoint)&&aurb->ret_len>0){
+			iov[ioc].iov_base = aurb->data+(is_ctrl?8:0);
+			iov[ioc].iov_len = aurb->ret_len;
+			ioc++;
 		}
-		ret=usbip_sendv(edev->client_fd, iov, iov_count);
-		if(ret!=len){
+		if(urb->type==USBDEVFS_URB_TYPE_ISO){
+			iov[ioc].iov_base = &ip_iso_descs[0];
+			iov[ioc].iov_len = sizeof(ip_iso_descs[0])
+				* urb->number_of_packets;
+			offset=0;
+			for(i=0;i<urb->number_of_packets;i++){
+				ip_iso_descs[i].offset = htonl(offset);
+				ip_iso_descs[i].length =
+					htonl(urb->iso_frame_desc[i].length);
+				ip_iso_descs[i].status =
+					htonl(urb->iso_frame_desc[i].status);
+				ip_iso_descs[i].actual_length =
+					htonl(urb->iso_frame_desc[i].actual_length);
+				offset+=urb->iso_frame_desc[i].length;
+			}
+			ioc++;
+		}
+		ret=usbip_sendv(edev->client_fd, iov, ioc);
+		if(ret<0)
 			g_error("can't send pdu_header");
-		}
 		delete_aurb(edev->processing_urbs, aurb->seqnum, 0);
-	}
+	} while(1);
 	return 0;
 }
 
@@ -688,7 +698,7 @@ static int cancel_urb(struct dlist * processing_urbs, unsigned int seqnum, int f
 		if (seqnum == aurb->seqnum){
 			dbg("found seqnum %d, subseqnum %d\n", seqnum,
 					aurb->sub_seqnum);
-			ret = ioctl(fd, USBDEVFS_DISCARDURB, aurb);
+			ret = ioctl(fd, USBDEVFS_DISCARDURB, &aurb->urb);
 			if(ret <0){
 				dbg("discard urb ret %d %m\n", ret);
 			} else {
@@ -703,18 +713,46 @@ static int cancel_urb(struct dlist * processing_urbs, unsigned int seqnum, int f
 	return ret;
 }
 
-//split urb
-int submit_urb(int fd, AsyncURB *aurb, struct dlist * processing_urbs)
+int submit_single_urb(int fd, AsyncURB *aurb, struct dlist * processing_urbs)
+{
+	int ret;
+	switch(aurb->urb.type){
+		case USBDEVFS_URB_TYPE_CONTROL:
+		case USBDEVFS_URB_TYPE_BULK:
+		case USBDEVFS_URB_TYPE_INTERRUPT:
+			if(aurb->data_len > USBDEVFS_MAX_LEN)
+				goto too_big;
+			break;
+		case USBDEVFS_URB_TYPE_ISO:
+			if(aurb->data_len > USBDEVFS_MAX_ISO_LEN)
+				goto too_big;
+			break;
+		default:
+			g_error("should never go here");
+	}
+	aurb->urb.buffer = aurb->data;
+	aurb->urb.buffer_length = aurb->data_len;
+	dump_urb(&aurb->urb);
+	ret = ioctl(fd, USBDEVFS_SUBMITURB, &aurb->urb);
+	if(ret<0){
+		err("ioctl last ret %d %m\n", ret);
+		return -1;
+	}
+	dlist_push(processing_urbs, (void *)aurb);
+	return 0;
+too_big:
+	err("too big data_len for single urb, len: %d, type:%d\n",
+			aurb->data_len,
+			aurb->urb.type);
+	return -1;
+}
+
+//try split urb
+int submit_bulk_out_urb(int fd, AsyncURB *aurb, struct dlist * processing_urbs)
 {
 	int all_len, left_len, this_len, ret, sub_seqnum=0;
 	AsyncURB *t_aurb;
 	struct usbdevfs_urb *urb;
-	if(aurb->data_len > USBDEVFS_MAX_LEN && (
-	       aurb->urb.type == USBDEVFS_URB_TYPE_CONTROL||
-			aurb->urb.type == USBDEVFS_URB_NO_INTERRUPT)){
-		err("why so big urb?");
-		return -1;
-	}
 	left_len=all_len=aurb->data_len;
 	while(left_len){
 		this_len = (left_len>USBDEVFS_MAX_LEN)?
@@ -767,8 +805,8 @@ int submit_bulk_in_urb(struct usbip_exported_device *edev, AsyncURB *aurb)
 	addr = aurb->urb.endpoint & USB_ENDPOINT_NUMBER_MASK;
 	big_ep = &edev->eps[1][addr];
 	if(big_ep->now_urb==NULL && aurb->data_len <=USBDEVFS_MAX_LEN)
-		return submit_urb(edev->usbfs_fd, aurb, edev->processing_urbs);
-	aurb->big_bulk_in=1;
+		return submit_single_urb(edev->usbfs_fd, aurb,
+				edev->processing_urbs);
 	if(big_ep->now_urb){
 		if(NULL==big_ep->waited_urbs){
 			big_ep->waited_urbs=dlist_new(sizeof(AsyncURB));
@@ -789,31 +827,246 @@ int submit_bulk_in_urb(struct usbip_exported_device *edev, AsyncURB *aurb)
 		return -1;
 }
 
+static void send_err_ret_cmd_submit(struct usbip_exported_device *edev,
+		struct usbip_header *pdu, int status)
+{
+	struct usbip_header reply;
+	int ret;
+
+	memcpy(&reply, pdu, sizeof(reply));
+	reply.base.command = USBIP_RET_SUBMIT;
+	reply.u.ret_submit.status = status;
+	reply.u.ret_submit.actual_length = 0;
+	reply.u.ret_submit.start_frame	= pdu->u.cmd_submit.start_frame;
+	reply.u.ret_submit.error_count	= pdu->u.cmd_submit.number_of_packets;
+	usbip_header_correct_endian(&reply, 1);
+	ret = usbip_send(edev->client_fd, &reply, sizeof(reply));
+	if (ret != sizeof(reply)){
+		err("can't send out reply");
+		un_imported_dev(edev);
+	}
+	return;
+}
+
+static int is_clear_halt_cmd(AsyncURB *aurb)
+{
+	struct usb_ctrlrequest *req;
+
+	req = (struct usb_ctrlrequest *) aurb->data;
+
+	return (req->bRequest == USB_REQ_CLEAR_FEATURE) &&
+		 (req->bRequestType == USB_RECIP_ENDPOINT) &&
+		 (req->wValue == USB_ENDPOINT_HALT);
+}
+
+static int is_set_interface_cmd(AsyncURB *aurb)
+{
+	struct usb_ctrlrequest *req;
+
+	req = (struct usb_ctrlrequest *) aurb->data;
+
+	return (req->bRequest == USB_REQ_SET_INTERFACE) &&
+		   (req->bRequestType == USB_RECIP_INTERFACE);
+}
+
+static int is_set_configuration_cmd(AsyncURB *aurb)
+{
+	struct usb_ctrlrequest *req;
+
+	req = (struct usb_ctrlrequest *) aurb->data;
+
+	return (req->bRequest == USB_REQ_SET_CONFIGURATION) &&
+		   (req->bRequestType == USB_RECIP_DEVICE);
+}
+
+#define le16_to_cpu(a)  (a)
+#define USB_RT_PORT     (USB_TYPE_CLASS | USB_RECIP_OTHER)
+#define USB_PORT_FEAT_RESET             4
+
+static int is_reset_device_cmd(AsyncURB *aurb)
+{
+	struct usb_ctrlrequest *req;
+	__u16 value;
+	__u16 index;
+
+	req = (struct usb_ctrlrequest *) aurb->data;
+	value = le16_to_cpu(req->wValue);
+	index = le16_to_cpu(req->wIndex);
+
+	if ((req->bRequest == USB_REQ_SET_FEATURE) &&
+		(req->bRequestType == USB_RT_PORT) &&
+		(value = USB_PORT_FEAT_RESET)) {
+		dbg("reset_device_cmd, port %u\n", index);
+		return 1;
+	} else
+		return 0;
+}
+
+static int tweak_clear_halt_cmd(int fd, AsyncURB * aurb)
+{
+	struct usb_ctrlrequest *req;
+	int target_endp;
+	int target_dir;
+	int target_ep;
+	int ret;
+
+	req = (struct usb_ctrlrequest *) aurb->data;
+
+	/*
+	 * The stalled endpoint is specified in the wIndex value. The endpoint
+	 * of the urb is the target of this clear_halt request (i.e., control
+	 * endpoint).
+	 */
+	target_endp = le16_to_cpu(req->wIndex) & USB_ENDPOINT_NUMBER_MASK;
+
+	/* the stalled endpoint direction is IN or OUT?. USB_DIR_IN is 0x80. */
+	target_dir = le16_to_cpu(req->wIndex) & USB_ENDPOINT_DIR_MASK;
+
+	target_ep = target_endp|target_dir;
+
+	ret = ioctl(fd, USBDEVFS_CLEAR_HALT,  &target_ep);
+
+	if (ret < 0){
+		err("clear halt failed %d %m\n", errno);
+		return -1;
+	}
+	return 1;
+}
+
+static int tweak_set_interface_cmd(struct usbip_exported_device *edev,
+		AsyncURB *aurb)
+{
+	struct usb_ctrlrequest *req;
+	struct usbdevfs_setinterface st;
+	int ret;
+
+	req = (struct usb_ctrlrequest *) aurb->data;
+	st.altsetting = le16_to_cpu(req->wValue);
+	st.interface = le16_to_cpu(req->wIndex);
+
+	dbg("set_interface: inf %u alt %u\n", st.interface, st.altsetting);
+
+	ret = ioctl(edev->usbfs_fd, USBDEVFS_SETINTERFACE,  &st);
+	if (ret < 0){
+		err("set interface failed %d %m\n", errno);
+		return -1;
+	}
+	if(usbip_refresh_eps(edev, st.interface, st.altsetting)<0)
+		g_error("strange usb device");
+	return 1;
+}
+
+static int tweak_set_configuration_cmd(int fd, AsyncURB *aurb)
+{
+	struct usb_ctrlrequest *req;
+	__u16 config;
+
+	req = (struct usb_ctrlrequest *)  aurb->data;
+	config = le16_to_cpu(req->wValue);
+
+	/*
+	 * I have never seen a multi-config device. Very rare.
+	 * For most devices, this will be called to choose a default
+	 * configuration only once in an initialization phase.
+	 *
+	 * set_configuration may change a device configuration and its device
+	 * drivers will be unbound and assigned for a new device configuration.
+	 * This means this usbip driver will be also unbound when called, then
+	 * eventually reassigned to the device as far as driver matching
+	 * condition is kept.
+	 *
+	 * Unfortunatelly, an existing usbip connection will be dropped
+	 * due to this driver unbinding. So, skip here.
+	 * A user may need to set a special configuration value before
+	 * exporting the device.
+	 */
+	info("set_configuration (%d) to dev\n", config);
+	info("but, skip!\n");
+	return 1;
+	//return usb_driver_set_configuration(urb->dev, config);
+}
+
+static int tweak_reset_device_cmd(int fd, AsyncURB *aurb)
+{
+	struct usb_ctrlrequest *req;
+	__u16 value;
+	__u16 index;
+	int ret;
+
+	req = (struct usb_ctrlrequest *) aurb->data;
+	value = le16_to_cpu(req->wValue);
+	index = le16_to_cpu(req->wIndex);
+
+	info("reset_device (port %d) to dev index:%d value: %d\n",
+			index, index, value);
+
+	ret = ioctl(fd, USBDEVFS_RESET);
+	if (ret < 0){
+		err("set interface failed %d %m\n", errno);
+		return -1;
+	}
+	return 1;
+}
+
+static int special_urb(struct usbip_exported_device *edev, AsyncURB *aurb)
+{
+	if(aurb->urb.endpoint & USB_ENDPOINT_NUMBER_MASK)
+		return 0;
+	if (is_clear_halt_cmd(aurb))
+		/* tweak clear_halt */
+		return tweak_clear_halt_cmd(edev->usbfs_fd, aurb);
+
+	else if (is_set_interface_cmd(aurb))
+		/* tweak set_interface */
+		return tweak_set_interface_cmd(edev, aurb);
+
+	else if (is_set_configuration_cmd(aurb))
+		/* tweak set_configuration */
+		return tweak_set_configuration_cmd(edev->usbfs_fd, aurb);
+
+	else if (is_reset_device_cmd(aurb))
+		return tweak_reset_device_cmd(edev->usbfs_fd, aurb);
+	else
+		dbg("no need to tweak\n");
+	return 0;
+}
+
 static void stub_recv_cmd_submit(struct usbip_exported_device *edev,
 		struct usbip_header *pdu)
 {
-	AsyncURB *aurb;
+	AsyncURB *aurb=NULL;
 	struct usbdevfs_urb *urb;
-	int ret, data_len, is_ctrl, usbdevfs_type;
+	struct usbip_iso_packet_descriptor ip_iso_descs[128], *ip_iso_desc;
+	struct usbdevfs_iso_packet_desc * fs_iso_desc;
+	int ret, data_len, iso_num=0, iso_len, is_ctrl, usbdevfs_type;
+	struct iovec iov[2];
+	int ioc=0, offset, i;
 
 	if(!is_valid_ep(edev, pdu, &is_ctrl, &usbdevfs_type)){
-		err("not a valid endpoint");
-		/* FIXME send a failed reply out */
-		return;
+		err("not a valid endpoint, fix your client driver");
+		goto failed;
 	}
-
+	if(usbdevfs_type == USBDEVFS_URB_TYPE_ISO){
+		iso_num = pdu->u.cmd_submit.number_of_packets;
+		if (iso_num < 1 || iso_num > 128 ){
+			err("kernel not support this, fix your client driver\n");
+			goto failed;
+		}
+	}
 	if (pdu->u.cmd_submit.transfer_buffer_length > 0||is_ctrl) {
-		data_len = pdu->u.cmd_submit.transfer_buffer_length + 
+		data_len = pdu->u.cmd_submit.transfer_buffer_length +
 			(is_ctrl?8:0);
 	} else
 		data_len = 0;
-	aurb=malloc(sizeof(*aurb)+data_len);
-	if(NULL==aurb)
-		g_error("malloc");
-	memset(aurb, 0, sizeof(*aurb));
-	aurb->data = (char *)(aurb+1);
+	iso_len =  sizeof(aurb->urb.iso_frame_desc[0]) * iso_num;
+	aurb = malloc( sizeof(*aurb) + iso_len + data_len );
+	if(NULL == aurb){
+		err("can't malloc aurb");
+		goto failed;
+	}
+	memset(aurb, 0, sizeof(*aurb) + iso_len );
+	aurb->data = (char *)(aurb+1) + iso_len;
 	aurb->data_len = data_len;
-
 	aurb->seqnum = pdu->base.seqnum;
 	urb=&aurb->urb;
 	urb->endpoint = pdu->base.ep & USB_ENDPOINT_NUMBER_MASK;
@@ -824,32 +1077,78 @@ static void stub_recv_cmd_submit(struct usbip_exported_device *edev,
 		memcpy(aurb->data, pdu->u.cmd_submit.setup, 8);
 	if(pdu->base.direction==USBIP_DIR_OUT &&
 		pdu->u.cmd_submit.transfer_buffer_length > 0){
-		ret=usbip_recv(edev->client_fd, aurb->data +
-					(is_ctrl?8:0),
-					pdu->u.cmd_submit.transfer_buffer_length);
-		if(ret!=pdu->u.cmd_submit.transfer_buffer_length)
-			g_error("recv pdu data");
+		iov[ioc].iov_base = aurb->data + (is_ctrl?8:0);
+		iov[ioc].iov_len = pdu->u.cmd_submit.transfer_buffer_length;
+		ioc++;
+	}
+	if(iso_num){
+		iov[ioc].iov_base = &ip_iso_descs[0];
+		iov[ioc].iov_len = sizeof(ip_iso_descs[0])*iso_num;
+		ioc++;
+	}
+	if(ioc){
+		ret=usbip_recvv(edev->client_fd, iov, ioc);
+		if(ret<0){
+			err("can't recv all data");
+			goto failed;
+		}
+	}
+	if(iso_num){
+		fs_iso_desc = urb->iso_frame_desc;
+		ip_iso_desc = ip_iso_descs;
+		offset = 0;
+		for(i=0; i<iso_num;i++){
+			if(ntohl(ip_iso_desc->offset)!=offset){
+				err("i can't deal with this");
+				goto failed;
+			}
+			fs_iso_desc->length = ntohl(ip_iso_desc->length);
+			if(fs_iso_desc->length > USB_MAX_ISO_PACKET_SIZE){
+				err("client driver error, too big packet");
+				goto failed;
+			}
+			offset+=fs_iso_desc->length;
+			fs_iso_desc++;
+			ip_iso_desc++;
+		}
+		if(offset!=data_len){
+			err("i can't deal with this");
+			goto failed;
+		}
 	}
 	urb->flags = get_transfer_flag(pdu->u.cmd_submit.transfer_flags);
 	urb->start_frame = pdu->u.cmd_submit.start_frame;
 	urb->number_of_packets = pdu->u.cmd_submit.number_of_packets;
-
-	/* no need to submit an intercepted request, but harmless? */
-	//FIXME
-	//tweak_special_requests(pdu->);
 	urb->type = usbdevfs_type;
-	dump_urb(urb);
-	if(pdu->base.direction == USBIP_DIR_IN &&
-			urb->type == USBDEVFS_URB_TYPE_BULK)
-		ret = submit_bulk_in_urb(edev, aurb);
-	else
-		ret = submit_urb(edev->usbfs_fd, aurb, edev->processing_urbs);
+	if((ret=special_urb(edev, aurb))){
+		if(ret>0)
+			send_err_ret_cmd_submit(edev, pdu, 0);
+		else
+			send_err_ret_cmd_submit(edev, pdu, ret);
+		free(aurb);
+		return;
+	}
+	if(urb->type != USBDEVFS_URB_TYPE_BULK)
+		ret = submit_single_urb(edev->usbfs_fd, aurb,
+				edev->processing_urbs);
+	else {
+		if(pdu->base.direction == USBIP_DIR_IN)
+			ret = submit_bulk_in_urb(edev, aurb);
+		else
+			ret = submit_bulk_out_urb(edev->usbfs_fd, aurb,
+					edev->processing_urbs);
+	}
 	if(ret<0){
 		dbg("submit ret %d %d %m\n",ret, errno);
-		info("unexport dev, perhaps client driver error\n");
-		un_imported_dev(edev);
+		goto failed;
 	}
-	/* urb is now ready to submit */
+	/* urb is now submited */
+	return;
+failed:
+	if(aurb)
+		free(aurb);
+	info("unexport dev, perhaps client driver error\n");
+	un_imported_dev(edev);
 	return;
 }
 
@@ -875,7 +1174,8 @@ static int recv_client_pdu(struct usbip_exported_device *edev,int sockfd)
 	memset(&pdu, 0, sizeof(pdu));
 	ret = usbip_recv(sockfd, &pdu, sizeof(pdu));
 	if (ret !=sizeof(pdu)){
-		err("recv a header, %d", ret);
+		err("recv a header, %d %m", ret);
+		un_imported_dev(edev);
 		return -1;
 	}
 	usbip_header_correct_endian(&pdu, 0);
@@ -909,6 +1209,7 @@ void un_imported_dev(struct usbip_exported_device *edev)
 {
 
 	AsyncURB * aurb;
+	struct usbdevfs_urb *urb;
 	int i;
 	struct usbip_endpoint * big_in_ep;
 	g_source_remove(edev->client_gio_id);
@@ -918,9 +1219,9 @@ void un_imported_dev(struct usbip_exported_device *edev)
 
 	/* Clear all of submited urb */
 	dlist_for_each_data(edev->processing_urbs, aurb, AsyncURB) {
-		ioctl(edev->usbfs_fd, USBDEVFS_DISCARDURB, aurb);
+		ioctl(edev->usbfs_fd, USBDEVFS_DISCARDURB, &aurb->urb);
 	}
-	while(0==ioctl(edev->usbfs_fd, USBDEVFS_REAPURBNDELAY, &aurb));
+	while(0==ioctl(edev->usbfs_fd, USBDEVFS_REAPURBNDELAY, &urb));
 	dlist_destroy(edev->processing_urbs);
 	edev->processing_urbs = NULL;
 	for(i=1; i<USB_ENDPOINT_NUMBER_MASK+1;i++){

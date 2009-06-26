@@ -9,14 +9,12 @@
 
 typedef struct _AsyncURB
 {
-    struct usbdevfs_urb urb;
-    struct usbdevfs_iso_packet_desc isocpd;
     char *data;
     unsigned int seqnum;
     unsigned int sub_seqnum;
     unsigned int data_len;
     unsigned int ret_len;
-    unsigned int big_bulk_in;
+    struct usbdevfs_urb urb;
 } AsyncURB;
 
 struct usbip_stub_driver {
@@ -42,6 +40,8 @@ struct usbip_exported_device {
 	int client_gio_id;
 	struct usbip_endpoint * eps[2];
 	struct dlist * processing_urbs;
+	char * desc;
+	int desc_len;
 	struct usb_device    udev;
 	struct usb_interface uinf[];
 };
@@ -56,6 +56,8 @@ int usbip_stub_export_device(struct usbip_exported_device *edev);
 
 struct usbip_exported_device * export_device(char * busid);
 void unexport_device(struct usbip_exported_device * deleted_edev);
+
+int usbip_refresh_eps(struct usbip_exported_device * edev, int inf, int alter);
 
 struct usbip_exported_device *usbip_stub_get_device(int num);
 

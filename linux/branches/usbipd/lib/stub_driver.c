@@ -16,6 +16,7 @@ static void usbip_exported_device_delete(void *dev)
 		(struct usbip_exported_device *) dev;
 	free(edev->eps[0]);
 	free(edev->eps[1]);
+	free(edev->desc);
 	sysfs_close_device(edev->sudev);
 	free(dev);
 }
@@ -147,12 +148,22 @@ static int usb_parse_desc(struct usbip_exported_device *edev, int config_v)
 	ret=read(edev->usbfs_fd, buf, MAX_DESC_SIZE);
 	if(ret<0){
 		err("can't read desc %m");
+		free(buf);
 		return -1;
 	}
 	if(ret==sizeof(MAX_DESC_SIZE)){
 		err("too big desc");
+		free(buf);
 		return -1;
 	}
+	edev->desc = realloc(buf, ret);
+	if(NULL == edev->desc){
+		err("can't realloc");
+		free(buf);
+		return -1;
+	}
+	edev->desc_len = ret;
+	buf = edev->desc;
 	dev = (struct usb_device_descriptor *)buf;
 	if(ret<sizeof(*dev)){
 		err("too short desc");
@@ -183,6 +194,52 @@ static int usb_parse_desc(struct usbip_exported_device *edev, int config_v)
 	return parse_config(edev, config);
 }
 
+static void show_eps(struct usbip_exported_device *edev)
+{
+	int i,j;
+	for(i=0; i<2;i++){
+		for(j=1;j<16;j++){
+		    if(edev->eps[i][j].valid){
+			    dbg("in:%d addr %d, type: %d int: %d alter: %d\n",
+				i,j,edev->eps[i][j].type,
+				edev->eps[i][j].intf,edev->eps[i][j].alter);
+		    }
+		}
+	}
+}
+
+int usbip_refresh_eps(struct usbip_exported_device *edev, int inf, int alter)
+{
+	int i, j, ret;
+	unsigned int offset = 0;
+	struct usb_config_descriptor *config;
+	for(i=0;i<2;i++){
+		for(j=1;j<16;j++){
+			if(edev->eps[i][j].intf==inf)
+				edev->eps[i][j].valid=0;
+		}
+	}
+	config = seek_to_next_desc(edev->desc, edev->desc_len,
+			&offset, USB_DT_CONFIG);
+	if(NULL==config){
+		err("error can'get config desc");
+		return -1;
+	}
+	if(config->bLength!=sizeof(*config)){
+		err("error length short config desc");
+		return -1;
+	}
+	if(offset + config->wTotalLength - config->bLength > edev->desc_len){
+		err("error too long desc offset:%d len:%d",
+				offset, config->wTotalLength);
+		return -1;
+	}
+	offset = 0;
+	ret = parse_interface(edev, config, &offset, inf, alter);
+	show_eps(edev);
+	return ret;
+}
+
 static int usb_host_claim_interfaces(struct usbip_exported_device *edev)
 {
 	int interface, ret;
@@ -194,8 +251,8 @@ static int usb_host_claim_interfaces(struct usbip_exported_device *edev)
 		if (ret < 0 && errno != ENODATA) {
 			err("USBDEVFS_DISCONNECT");
 	                goto fail;
-            	}
-    	}
+		}
+	}
 
     /* XXX: only grab if all interfaces are free */
 	for (interface = 0; interface < edev->udev.bNumInterfaces; interface++) {
@@ -225,7 +282,6 @@ static int claim_dev(struct usbip_exported_device *edev)
     int fd = -1;
     struct usb_device *dev = &edev->udev;
     char buf[1024];
-    int i,j;
 
     dbg("husb: open device %d.%d\n", dev->busnum, dev->devnum);
 
@@ -241,15 +297,7 @@ static int claim_dev(struct usbip_exported_device *edev)
     dbg("opened %s\n", buf);
     if (usb_parse_desc(edev, 1))
 	goto fail;
-    for(i=0; i<2;i++){
-	    for(j=1;j<16;j++){
-		    if(edev->eps[i][j].valid){
-			    dbg("in:%d addr %d, type: %d int: %d alter: %d\n",
-				i,j,edev->eps[i][j].type,
-				edev->eps[i][j].intf,edev->eps[i][j].alter);
-		    }
-	    }
-    }
+    show_eps(edev);
     if (usb_host_claim_interfaces(edev))
         goto fail;
 #if 0
@@ -328,6 +376,8 @@ err:
 		free(edev->eps[0]);
 	if (edev && edev->eps[1])
 		free(edev->eps[1]);
+	if (edev && edev->desc)
+		free(edev->desc);
 	return NULL;
 }
 

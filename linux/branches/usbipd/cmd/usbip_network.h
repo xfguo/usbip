@@ -184,7 +184,9 @@ void pack_usb_interface(int pack, struct usb_interface *uinf);
 
 ssize_t usbip_recv(int sockfd, void *buff, size_t bufflen);
 ssize_t usbip_send(int sockfd, void *buff, size_t bufflen);
-ssize_t usbip_sendv(int sockfd, struct iovec *iov, int io_count);
+#define usbip_sendv(fd, iov, io_count) usbip_xmitv(fd, iov, io_count, 1)
+#define usbip_recvv(fd, iov, io_count) usbip_xmitv(fd, iov, io_count, 0)
+ssize_t usbip_xmitv(int sockfd, struct iovec *iov, int io_count, int sending);
 int usbip_send_op_common(int sockfd, uint32_t code, uint32_t status);
 int usbip_recv_op_common(int sockfd, uint16_t *code);
 int usbip_set_reuseaddr(int sockfd);
