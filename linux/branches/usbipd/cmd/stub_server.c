@@ -504,6 +504,8 @@ static void setup_ret_submit_pdu(struct usbip_header *rpdu, AsyncURB *aurb)
 	rpdu->u.ret_submit.actual_length = aurb->ret_len;
 	rpdu->u.ret_submit.start_frame	= urb->start_frame;
 	rpdu->u.ret_submit.error_count	= urb->error_count;
+	/* FIXME */
+	rpdu->u.ret_submit.number_of_packets = urb->number_of_packets;
 }
 
 int try_submit_sub_urb(struct usbip_exported_device *edev, AsyncURB *aurb)
@@ -525,13 +527,47 @@ int try_submit_sub_urb(struct usbip_exported_device *edev, AsyncURB *aurb)
 	return 0;
 }
 
+int prepare_iso_data_iov(struct usbdevfs_urb *urb, struct iovec iov[], int ioc)
+{
+	int i;
+	int all, offset, base_offset;
+	struct usbdevfs_iso_packet_desc * fs_iso_desc;
+	if(urb->number_of_packets>128)
+		g_error("why so many packets");
+	all=0;
+	offset=0;
+	base_offset = 0;
+	fs_iso_desc = &urb->iso_frame_desc[0];
+	for(i=0; i<urb->number_of_packets; i++){
+		if(fs_iso_desc->status<0&&
+				fs_iso_desc->actual_length)
+			g_error("why we got this");
+		if(fs_iso_desc->actual_length <
+			fs_iso_desc->length){
+			iov[ioc].iov_base = urb->buffer+base_offset;
+			iov[ioc].iov_len =  offset + fs_iso_desc->actual_length
+				- base_offset;
+			if(iov[ioc].iov_len)
+				ioc++;
+			base_offset+=fs_iso_desc->length;
+		}
+		offset += fs_iso_desc->length;
+		all += fs_iso_desc->actual_length;
+		fs_iso_desc++;
+	}
+	if(all!=urb->actual_length)
+		g_error("why not equal %d %d", all, urb->actual_length);
+	dbg("we got %d iov for iso data\n", ioc);
+	return ioc;
+}
+
 static int stub_send_ret_submit(struct usbip_exported_device *edev)
 {
 	AsyncURB *aurb, *last_aurb;
 	struct usbip_header pdu_header;
 	struct usbdevfs_urb *urb;
 	int ret, len, ep;
-	struct iovec iov[3];
+	struct iovec iov[130];
 	int ioc, offset, i;
 	int is_ctrl;
 	struct usbip_iso_packet_descriptor ip_iso_descs[128];
@@ -618,9 +654,12 @@ static int stub_send_ret_submit(struct usbip_exported_device *edev)
 		iov[0].iov_len = sizeof(pdu_header);
 		ioc=1;
 		if(is_in_ep(urb->endpoint)&&aurb->ret_len>0){
-			iov[ioc].iov_base = aurb->data+(is_ctrl?8:0);
-			iov[ioc].iov_len = aurb->ret_len;
-			ioc++;
+			if(urb->type!=USBDEVFS_URB_TYPE_ISO){
+				iov[ioc].iov_base = aurb->data+(is_ctrl?8:0);
+				iov[ioc].iov_len = aurb->ret_len;
+				ioc++;
+			} else
+				ioc = prepare_iso_data_iov(urb, iov, ioc);
 		}
 		if(urb->type==USBDEVFS_URB_TYPE_ISO){
 			iov[ioc].iov_base = &ip_iso_descs[0];
