@@ -92,12 +92,12 @@ ssize_t usbip_xmitv(int sockfd, struct iovec *iov, int io_count, int sending)
 	if(sending)
 		ret=sendmsg(sockfd, &mhdr, 0);
 	else
-		ret=recvmsg(sockfd, &mhdr, 0);
+		ret=recvmsg(sockfd, &mhdr, MSG_WAITALL);
 	if(ret!=len){
 		if(sending)
-			dbg("why sendmsg don't send all msg out?");
+			dbg("why sendmsg don't send all msg out? %d", ret);
 		else
-			dbg("why recvmsg don't recv all msg in?");
+			dbg("why recvmsg don't recv all msg in? %d", ret);
 		return -1;
 	}
 	return ret;

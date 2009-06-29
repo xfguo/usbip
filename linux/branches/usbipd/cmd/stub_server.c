@@ -518,7 +518,6 @@ int try_submit_sub_urb(struct usbip_exported_device *edev, AsyncURB *aurb)
 		g_error("why this_len = 0");
 	aurb->urb.buffer = aurb->data + aurb->ret_len;
 	aurb->urb.buffer_length = this_len;
-	dump_urb(&aurb->urb);
 	ret = ioctl(edev->usbfs_fd, USBDEVFS_SUBMITURB, &aurb->urb);
 	if(ret<0){
 		err("ioctl last ret %d %m\n", ret);
@@ -771,7 +770,6 @@ int submit_single_urb(int fd, AsyncURB *aurb, struct dlist * processing_urbs)
 	}
 	aurb->urb.buffer = aurb->data;
 	aurb->urb.buffer_length = aurb->data_len;
-	dump_urb(&aurb->urb);
 	ret = ioctl(fd, USBDEVFS_SUBMITURB, &aurb->urb);
 	if(ret<0){
 		err("ioctl last ret %d %m\n", ret);
@@ -802,7 +800,6 @@ int submit_bulk_out_urb(int fd, AsyncURB *aurb, struct dlist * processing_urbs)
 			//the last urb
 			aurb->urb.buffer = aurb->data + all_len - this_len;
 			aurb->urb.buffer_length = this_len;
-			dump_urb(&aurb->urb);
 			ret = ioctl(fd, USBDEVFS_SUBMITURB, &aurb->urb);
 			if(ret<0){
 				err("ioctl last ret %d %m\n", ret);
@@ -1151,7 +1148,7 @@ static void stub_recv_cmd_submit(struct usbip_exported_device *edev,
 			ip_iso_desc++;
 		}
 		if(offset!=data_len){
-			err("i can't deal with this");
+			err("i can't deal with this %d %d", offset, data_len);
 			goto failed;
 		}
 	}
@@ -1159,6 +1156,8 @@ static void stub_recv_cmd_submit(struct usbip_exported_device *edev,
 	urb->start_frame = pdu->u.cmd_submit.start_frame;
 	urb->number_of_packets = pdu->u.cmd_submit.number_of_packets;
 	urb->type = usbdevfs_type;
+	if(usbdevfs_type == USBDEVFS_URB_TYPE_ISO)
+		urb->flags|=USBDEVFS_URB_ISO_ASAP;
 	if((ret=special_urb(edev, aurb))){
 		if(ret>0)
 			send_err_ret_cmd_submit(edev, pdu, 0);
