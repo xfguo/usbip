@@ -538,17 +538,17 @@ int prepare_iso_data_iov(struct usbdevfs_urb *urb, struct iovec iov[], int ioc)
 	base_offset = 0;
 	fs_iso_desc = &urb->iso_frame_desc[0];
 	for(i=0; i<urb->number_of_packets; i++){
-		if(fs_iso_desc->status<0&&
+		if(fs_iso_desc->status&&
 				fs_iso_desc->actual_length)
 			g_error("why we got this");
 		if(fs_iso_desc->actual_length <
-			fs_iso_desc->length){
+			fs_iso_desc->length||i==urb->number_of_packets-1){
 			iov[ioc].iov_base = urb->buffer+base_offset;
 			iov[ioc].iov_len =  offset + fs_iso_desc->actual_length
 				- base_offset;
 			if(iov[ioc].iov_len)
 				ioc++;
-			base_offset+=fs_iso_desc->length;
+			base_offset = offset + fs_iso_desc->length;
 		}
 		offset += fs_iso_desc->length;
 		all += fs_iso_desc->actual_length;
@@ -556,7 +556,6 @@ int prepare_iso_data_iov(struct usbdevfs_urb *urb, struct iovec iov[], int ioc)
 	}
 	if(all!=urb->actual_length)
 		g_error("why not equal %d %d", all, urb->actual_length);
-	dbg("we got %d iov for iso data\n", ioc);
 	return ioc;
 }
 
