@@ -29,6 +29,7 @@ struct usbip_endpoint {
 	unsigned char valid;
 	unsigned char intf;
 	unsigned char alter;
+	unsigned int  max_packet_size;
 };
 
 struct usbip_exported_device {

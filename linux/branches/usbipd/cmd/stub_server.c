@@ -386,6 +386,16 @@ static inline int is_in_ep(unsigned  int ep_num)
 	return ep_num & USB_DIR_IN;
 }
 
+struct usbip_endpoint * get_ep(struct usbip_exported_device *edev,
+		unsigned int ep)
+{
+	unsigned int addr;
+	int in;
+	addr = ep & USB_ENDPOINT_NUMBER_MASK;
+	in = is_in_ep(ep)?1:0;
+	return &edev->eps[in][addr];
+}
+
 static void dump_urb(struct usbdevfs_urb *urb)
 {
 	dbg("type:%d\n"
@@ -538,9 +548,6 @@ int prepare_iso_data_iov(struct usbdevfs_urb *urb, struct iovec iov[], int ioc)
 	base_offset = 0;
 	fs_iso_desc = &urb->iso_frame_desc[0];
 	for(i=0; i<urb->number_of_packets; i++){
-		if(fs_iso_desc->status&&
-				fs_iso_desc->actual_length)
-			g_error("why we got this");
 		if(fs_iso_desc->actual_length <
 			fs_iso_desc->length||i==urb->number_of_packets-1){
 			iov[ioc].iov_base = urb->buffer+base_offset;
@@ -557,6 +564,20 @@ int prepare_iso_data_iov(struct usbdevfs_urb *urb, struct iovec iov[], int ioc)
 	if(all!=urb->actual_length)
 		g_error("why not equal %d %d", all, urb->actual_length);
 	return ioc;
+}
+
+void fix_urb_a_len(struct usbdevfs_urb * urb)
+{
+	int i;
+	int all=0;
+	for(i=0;i<urb->number_of_packets;i++){
+		all+=urb->iso_frame_desc[i].actual_length;
+	}
+	if(all!=urb->actual_length){
+		dbg("fix actual_length %d->%d\n",
+				urb->actual_length,all);
+		urb->actual_length = all;
+	}
 }
 
 static int stub_send_ret_submit(struct usbip_exported_device *edev)
@@ -579,17 +600,69 @@ static int stub_send_ret_submit(struct usbip_exported_device *edev)
 		}
 		aurb =  (AsyncURB *) ((char *)urb - offsetof(AsyncURB, urb));
 		if(aurb->sub_seqnum){
-			dbg("splited bulk urb ret");
-			last_aurb = find_aurb(edev->processing_urbs,
-					aurb->seqnum, 0);
-			if(last_aurb==NULL){
-				dbg("perhaps unlinked urb");
-			} else {
-				last_aurb->ret_len += urb->actual_length;
-			}
-			delete_aurb(edev->processing_urbs, aurb->seqnum,
+			if (urb->type != USBDEVFS_URB_TYPE_ISO) {
+				dbg("splited bulk urb ret");
+				last_aurb = find_aurb(edev->processing_urbs,
+						aurb->seqnum, 0);
+				if(last_aurb==NULL){
+					dbg("perhaps unlinked urb");
+				} else {
+					last_aurb->ret_len += urb->actual_length;
+				}
+				delete_aurb(edev->processing_urbs, aurb->seqnum,
 					aurb->sub_seqnum);
-			continue;
+				continue;
+			} else {
+				/* FIXME unlink for iso */
+				dbg("splited iso urb ret %d %d",
+						aurb->seqnum,
+						aurb->sub_seqnum);
+				big_ep = get_ep(edev, urb->endpoint);
+				if(!big_ep->now_urb)
+					g_error("why no urb waiting me");
+				last_aurb = big_ep->now_urb;
+				if(last_aurb->seqnum!=aurb->seqnum){
+					g_error("why not waited me %d %d",
+					last_aurb->seqnum, aurb->seqnum);
+				}
+				i=aurb->sub_seqnum - urb->number_of_packets;
+				if(i<0||i>last_aurb->urb.number_of_packets)
+					g_error("why this %d\n", i);
+				if(aurb->sub_seqnum >
+						last_aurb->urb.number_of_packets)
+					g_error("why so big sub_seqnum %d\n",
+							aurb->sub_seqnum);
+				memcpy(&last_aurb->urb.iso_frame_desc[i],
+					&urb->iso_frame_desc[0],
+					urb->number_of_packets
+					* sizeof(urb->iso_frame_desc[0]));
+				last_aurb->urb.actual_length+=urb->actual_length;
+				last_aurb->urb.error_count+=urb->error_count;
+				last_aurb->ret_len+=urb->number_of_packets;
+				if( last_aurb->ret_len <
+					last_aurb->urb.number_of_packets){
+					delete_aurb(edev->processing_urbs,
+							aurb->seqnum,
+						aurb->sub_seqnum);
+					continue;
+				}
+				last_aurb->ret_len=0;
+				delete_aurb(edev->processing_urbs,
+						aurb->seqnum,
+						aurb->sub_seqnum);
+				if(big_ep->waited_urbs &&
+						big_ep->waited_urbs->count){
+					big_ep->now_urb =
+					dlist_shift(big_ep->waited_urbs);
+				} else
+					big_ep->now_urb = NULL;
+				aurb=last_aurb;
+				urb=&last_aurb->urb;
+				fix_urb_a_len(urb);
+				dlist_push(edev->processing_urbs, aurb);
+				urb->buffer = aurb->data;
+				urb->buffer_length = aurb->data_len;
+			}
 		}
 		if(aurb->urb.type == USBDEVFS_URB_TYPE_BULK &&
 			is_in_ep(aurb->urb.endpoint)){
@@ -769,6 +842,7 @@ int submit_single_urb(int fd, AsyncURB *aurb, struct dlist * processing_urbs)
 	}
 	aurb->urb.buffer = aurb->data;
 	aurb->urb.buffer_length = aurb->data_len;
+	dump_urb(&aurb->urb);
 	ret = ioctl(fd, USBDEVFS_SUBMITURB, &aurb->urb);
 	if(ret<0){
 		err("ioctl last ret %d %m\n", ret);
@@ -830,6 +904,75 @@ err:
 	if(sub_seqnum>1)
 		cancel_urb(processing_urbs, aurb->seqnum, fd);
 	return ret;
+}
+
+int submit_sub_iso_urb(struct usbip_exported_device *edev,
+		AsyncURB *aurb, int from, int to,
+		int base, int  len)
+{
+	AsyncURB * t_aurb;
+	int ret;
+	int i;
+	int iso_num = to - from;
+	t_aurb=malloc(sizeof(*t_aurb) +
+			iso_num * sizeof(t_aurb->urb.iso_frame_desc[0]));
+	if(t_aurb==NULL){
+		err("malloc %m");
+		return -1;
+	}
+	memcpy(t_aurb, aurb, sizeof(*aurb));
+	t_aurb->data = aurb->data + base;
+	t_aurb->data_len = len;
+	t_aurb->urb.number_of_packets = iso_num;
+	memcpy(&t_aurb->urb.iso_frame_desc[0],
+		&aurb->urb.iso_frame_desc[from],
+		sizeof(t_aurb->urb.iso_frame_desc[0])*iso_num);
+	t_aurb->sub_seqnum = to;
+	dbg("submited seq: %d sub_seqnum %d\n", t_aurb->seqnum, to);
+	ret = submit_single_urb(edev->usbfs_fd, t_aurb, edev->processing_urbs);
+	if(ret<0){
+		free(t_aurb);
+		return -1;
+	}
+	return 0;
+}
+
+
+
+int submit_iso_urb(struct usbip_exported_device *edev, AsyncURB *aurb)
+{
+	struct usbip_endpoint * iso_ep=get_ep(edev, aurb->urb.endpoint);
+	int i;
+	int offset=0, base=0, base_i=0;
+
+	if(aurb->data_len <= USBDEVFS_MAX_ISO_LEN)
+		return submit_single_urb(edev->usbfs_fd, aurb,
+				edev->processing_urbs);
+	if(iso_ep->now_urb == NULL)
+		iso_ep->now_urb = aurb;
+	else {
+		if(NULL==iso_ep->waited_urbs){
+			iso_ep->waited_urbs=dlist_new(sizeof(AsyncURB));
+			if(NULL==iso_ep->waited_urbs){
+				err("can't malloc");
+				return -1;
+			}
+		}
+		dlist_push(iso_ep->waited_urbs, aurb);
+	}
+	for(i=0; i<aurb->urb.number_of_packets; i++){
+		if(offset+aurb->urb.iso_frame_desc[i].length<=
+			USBDEVFS_MAX_ISO_LEN){
+			offset+=aurb->urb.iso_frame_desc[i].length;
+			continue;
+		}
+		if(submit_sub_iso_urb(edev, aurb, base_i, i, base, offset))
+			return -1;
+		base += offset;
+		base_i = i;
+		offset = aurb->urb.iso_frame_desc[i].length;
+	}
+	return submit_sub_iso_urb(edev, aurb, base_i, i, base, offset);
 }
 
 int submit_bulk_in_urb(struct usbip_exported_device *edev, AsyncURB *aurb)
@@ -1076,6 +1219,7 @@ static void stub_recv_cmd_submit(struct usbip_exported_device *edev,
 	int ret, data_len, iso_num=0, iso_len, is_ctrl, usbdevfs_type;
 	struct iovec iov[2];
 	int ioc=0, offset, i;
+	struct usbip_endpoint * iso_ep;
 
 	if(!is_valid_ep(edev, pdu, &is_ctrl, &usbdevfs_type)){
 		err("not a valid endpoint, fix your client driver");
@@ -1132,17 +1276,28 @@ static void stub_recv_cmd_submit(struct usbip_exported_device *edev,
 		fs_iso_desc = urb->iso_frame_desc;
 		ip_iso_desc = ip_iso_descs;
 		offset = 0;
+		iso_ep = get_ep(edev, urb->endpoint);
 		for(i=0; i<iso_num;i++){
 			if(ntohl(ip_iso_desc->offset)!=offset){
 				err("i can't deal with this");
 				goto failed;
 			}
 			fs_iso_desc->length = ntohl(ip_iso_desc->length);
-			if(fs_iso_desc->length > USB_MAX_ISO_PACKET_SIZE){
-				err("client driver error, too big packet");
-				goto failed;
+			if(pdu->base.direction == USBIP_DIR_OUT){
+				if(fs_iso_desc->length >
+					iso_ep->max_packet_size){
+					err("client driver error, too big packet");
+					goto failed;
+				}
+			} else {
+				if(fs_iso_desc->length >
+						iso_ep->max_packet_size){
+					dbg("fix client driver");
+					fs_iso_desc->length =
+						iso_ep->max_packet_size;
+				}
 			}
-			offset+=fs_iso_desc->length;
+			offset+=ntohl(ip_iso_desc->length);
 			fs_iso_desc++;
 			ip_iso_desc++;
 		}
@@ -1165,15 +1320,26 @@ static void stub_recv_cmd_submit(struct usbip_exported_device *edev,
 		free(aurb);
 		return;
 	}
-	if(urb->type != USBDEVFS_URB_TYPE_BULK)
-		ret = submit_single_urb(edev->usbfs_fd, aurb,
+	switch(urb->type){
+		case USBDEVFS_URB_TYPE_CONTROL:
+		case USBDEVFS_URB_TYPE_INTERRUPT:
+			ret = submit_single_urb(edev->usbfs_fd, aurb,
 				edev->processing_urbs);
-	else {
-		if(pdu->base.direction == USBIP_DIR_IN)
-			ret = submit_bulk_in_urb(edev, aurb);
-		else
-			ret = submit_bulk_out_urb(edev->usbfs_fd, aurb,
+			break;
+		case USBDEVFS_URB_TYPE_BULK:
+			if(pdu->base.direction == USBIP_DIR_IN)
+				ret = submit_bulk_in_urb(edev, aurb);
+			else
+				ret = submit_bulk_out_urb(edev->usbfs_fd, aurb,
 					edev->processing_urbs);
+			break;
+		case USBDEVFS_URB_TYPE_ISO:
+			ret = submit_iso_urb(edev, aurb);
+			break;
+		default:
+			/* never reach here */
+			g_error("end of the world?");
+			break;
 	}
 	if(ret<0){
 		dbg("submit ret %d %d %m\n",ret, errno);

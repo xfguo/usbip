@@ -47,6 +47,7 @@ static int add_ep_info(struct usbip_exported_device *edev,
 {
 	int in, addr;
 	struct usbip_endpoint * uep;
+	int mult;
 	if(ep->bEndpointAddress&USB_ENDPOINT_DIR_MASK)
 		in=1;
 	else
@@ -65,6 +66,13 @@ static int add_ep_info(struct usbip_exported_device *edev,
 	uep->valid = 1;
 	uep->intf = intf;
 	uep->alter = alter;
+	uep->max_packet_size =  ep->wMaxPacketSize;
+	if(uep->type == USB_ENDPOINT_XFER_ISOC &&
+		edev->udev.speed == USB_SPEED_HIGH){
+		mult = 1 + ((uep->max_packet_size >> 11) & 0x03);
+		uep->max_packet_size &= 0x7ff;
+		uep->max_packet_size *= mult;
+	}
 	return 0;
 }
 
@@ -200,9 +208,10 @@ static void show_eps(struct usbip_exported_device *edev)
 	for(i=0; i<2;i++){
 		for(j=1;j<16;j++){
 		    if(edev->eps[i][j].valid){
-			    dbg("in:%d addr %d, type: %d int: %d alter: %d\n",
+			    dbg("in:%d addr:%d type:%d int:%d alter:%d ps:%d\n",
 				i,j,edev->eps[i][j].type,
-				edev->eps[i][j].intf,edev->eps[i][j].alter);
+				edev->eps[i][j].intf,edev->eps[i][j].alter,
+				edev->eps[i][j].max_packet_size);
 		    }
 		}
 	}
