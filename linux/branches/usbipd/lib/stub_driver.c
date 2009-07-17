@@ -298,7 +298,7 @@ static int claim_dev(struct usbip_exported_device *edev)
              dev->busnum, dev->devnum);
     fd = open(buf, O_RDWR | O_NONBLOCK);
     if (fd < 0) {
-	err("%s", buf);
+	err("can't open file %s, perhaps you haven't mount usbfs?", buf);
         goto fail;
     }
     edev->usbfs_fd = fd;
