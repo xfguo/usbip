@@ -1,0 +1,114 @@
+# vim:tw=78:ts=4:expandtab:ai:sw=4
+#
+# $Id$
+#
+# Copyright (C) 2003-2008 Takahiro Hirofuchi
+
+
+Overview
+    The USB/IP Project aims to develop a general USB device sharing system
+    over IP network. To share USB devices between computers with their full
+    functionality, USB/IP encapsulates "USB requests" into TCP/IP payloads and
+    transmits them between computers. Original USB device drivers and
+    applications can be also used for remote USB devices without any
+    modification of them.  A computer can use remote USB devices as if they
+    were directly attached; for example, we can ...
+
+        - USB storage devices: fdisk, mkfs, mount/umount, file operations,
+          play a DVD movie and record a DVD-R media.  
+
+        - USB keyboards and USB mice: use with linux console and X Window
+          System.  
+
+        - USB webcams and USB speakers: view webcam, capture image data and
+          play some music.
+
+        - USB printers, USB scanners, USB serial converters and USB Ethernet
+          interfaces: ok, use fine. 
+
+    On one host, the VHCI (Virtual Host Controller Interface) driver
+    is implemented as a USB host controller driver. The VHCI driver
+    emulates a real USB host controller interface for virtual
+    attachment/detachment, enumeration and initialization of remote USB
+    devices. It encapsulates USB request blocks and then transmits USB/IP
+    requests to a remote host. On the other host, the Stub driver is
+    implemented as a USB per-device driver. The Stub driver decapsulates
+    USB/IP requests into USB requests and then submit them to real USB
+    devices. 
+
+    For more information, please see http://usbip.sourceforge.net/ .
+    The detail is described in an academic paper.
+
+
+Compile & Install
+    USB/IP needs both kernel drivers and userland utilities.
+
+    The kernel modules are in the drivers/ subdirectory.
+    See drivers/README for details.
+
+    The userspace applications are in the src/ subdirectory.
+    See src/README for details
+
+
+Usages
+    - Import devices from a server host.
+      Normal operation. e.g., device servers.
+      Read src/README for details.
+
+    - Export devices automatically when plugged.
+      e.g., thin client systems and remote desktop programs.
+      Read src/README.usbaid for details.
+      This feature is added by Robert. Thanks.
+
+
+Wiki
+    http://usbip.wiki.sourceforge.net/
+    FAQ, Todo list, Known bugs, and so on.
+
+
+Public Forum and Mailing List
+    They are available in the project page on sourceforge.net.
+        Forum
+            http://sourceforge.net/forum/forum.php?forum_id=418509
+        Mailing List
+            http://sourceforge.net/mail/?group_id=122798
+
+
+RSS feeds (e.g., the latest file releases)
+    http://sourceforge.net/export/rss2_project.php?group_id=122798
+
+
+Contact
+    Bug reports, feature requests, and your comments are welcome.
+    Please use the above forum and the mailing list, or contact us.
+
+    usbip-devel _at_ lists.sourceforge.net (Recommended)
+
+    Takahiro Hirofuchi <hirofuchi _at_ users.sourceforge.net>
+
+    University of Freiburg
+    Robert Leibl <robertleibl _at_ users.sourceforge.net>
+
+
+License
+    This program is free software; you can redistribute it and/or modify it
+    under the terms of the GNU General Public License as published by the Free
+    Software Foundation; either version 2 of the License, or (at your option)
+    any later version.
+    
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+    or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+    for more details.
+    
+    You should have received a copy of the GNU General Public License along
+    with this program; if not, write to the Free Software Foundation, Inc., 59
+    Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+
+Thanks
+    All the people who gave me comments, bug report, and helpful code!
+    I refer some Linux kernel code; especially,
+        drivers/usb/usb-skeleton.c
+        drivers/usb/dummy_hcd.c
+        drivers/usb/host/* .
