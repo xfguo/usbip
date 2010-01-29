@@ -398,7 +398,11 @@ static int stub_probe(struct usb_interface *interface, const struct usb_device_i
 {
 	struct usb_device *udev = interface_to_usbdev(interface);
 	struct stub_device *sdev = NULL;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,30)
 	char *udev_busid = interface->dev.parent->bus_id;
+#else
+	char *udev_busid = dev_name(interface->dev.parent);
+#endif
 	int err = 0;
 
 	udbg("Enter\n");

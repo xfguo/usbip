@@ -1076,7 +1076,11 @@ static int vhci_hcd_probe(struct platform_device *pdev)
 	 * Allocate and initialize hcd.
 	 * Our private data is also allocated automatically.
 	 */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,30)
 	hcd = usb_create_hcd(&vhci_hc_driver, &pdev->dev, pdev->dev.bus_id);
+#else
+	hcd = usb_create_hcd(&vhci_hc_driver, &pdev->dev, dev_name(&pdev->dev));
+#endif
 	if (!hcd) {
 		uerr("create hcd failed\n");
 		return -ENOMEM;
