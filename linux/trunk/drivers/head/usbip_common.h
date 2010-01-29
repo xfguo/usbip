@@ -300,6 +300,7 @@ struct usbip_device;
 
 struct usbip_task {
 	struct task_struct *thread;
+	struct completion thread_started;
 	struct completion thread_done;
 	char *name;
 	void (*loop_ops)(struct usbip_task *);

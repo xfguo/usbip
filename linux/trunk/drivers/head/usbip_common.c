@@ -390,7 +390,7 @@ int usbip_thread(void *param)
 	unlock_kernel();
 
 	/* srv.rb must wait for rx_thread starting */
-	complete(&ut->thread_done);
+	complete(&ut->thread_started);
 
 	/* start of while loop */
 	ut->loop_ops(ut);
@@ -403,15 +403,21 @@ int usbip_thread(void *param)
 
 void usbip_start_threads(struct usbip_device *ud)
 {
+
 	/*
 	 * threads are invoked per one device (per one connection).
 	 */
+    INIT_COMPLETION(ud->tcp_rx.thread_started);
+    INIT_COMPLETION(ud->tcp_tx.thread_started);
+    INIT_COMPLETION(ud->tcp_rx.thread_done);
+    INIT_COMPLETION(ud->tcp_tx.thread_done);
+
 	kernel_thread((int(*)(void *))usbip_thread, (void *)&ud->tcp_rx, 0);
 	kernel_thread((int(*)(void *))usbip_thread, (void *)&ud->tcp_tx, 0);
 
 	/* confirm threads are starting */
-	wait_for_completion(&ud->tcp_rx.thread_done);
-	wait_for_completion(&ud->tcp_tx.thread_done);
+	wait_for_completion(&ud->tcp_rx.thread_started);
+	wait_for_completion(&ud->tcp_tx.thread_started);
 }
 EXPORT_SYMBOL(usbip_start_threads);
 
@@ -436,6 +442,7 @@ void usbip_task_init(struct usbip_task *ut, char *name,
 		void (*loop_ops)(struct usbip_task *))
 {
 	ut->thread = NULL;
+	init_completion(&ut->thread_started);
 	init_completion(&ut->thread_done);
 	ut->name = name;
 	ut->loop_ops = loop_ops;

@@ -38,7 +38,7 @@ void usbip_start_eh(struct usbip_device *ud)
 
 	kernel_thread((int(*)(void *)) usbip_thread, (void *) eh, 0);
 
-	wait_for_completion(&eh->thread_done);
+	wait_for_completion(&eh->thread_started);
 }
 EXPORT_SYMBOL(usbip_start_eh);
 

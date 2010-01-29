@@ -1060,7 +1060,7 @@ static int vhci_hcd_probe(struct platform_device *pdev)
 	struct usb_hcd		*hcd;
 	int			ret;
 
-	uinfo("proving...\n");
+	uinfo("probing...\n");
 
 	dbg_vhci_hc("name %s id %d\n", pdev->name, pdev->id);
 
