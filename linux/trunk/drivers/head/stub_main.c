@@ -252,17 +252,16 @@ static int __init usb_stub_init(void)
 		return -ENOMEM;
 	}
 
+	info(DRIVER_DESC "" DRIVER_VERSION);
+
+	memset(busid_table, 0, sizeof(busid_table));
+	spin_lock_init(&busid_table_lock);
+
 	ret = usb_register(&stub_driver);
 	if (ret) {
 		uerr("usb_register failed %d\n", ret);
 		return ret;
 	}
-
-
-	info(DRIVER_DESC "" DRIVER_VERSION);
-
-	memset(busid_table, 0, sizeof(busid_table));
-	spin_lock_init(&busid_table_lock);
 
 	ret = driver_create_file(&stub_driver.drvwrap.driver, &driver_attr_match_busid);
 
