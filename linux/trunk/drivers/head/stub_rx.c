@@ -187,7 +187,11 @@ static int tweak_reset_device_cmd(struct urb *urb)
 	}
 
 	/* try to reset the device */
-	ret = usb_reset_composite_device(urb->dev, NULL);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,27)
+    ret = usb_reset_composite_device(urb->dev, NULL);
+#else
+	ret = usb_reset_device(urb->dev);
+#endif
 	if (ret < 0)
 		uerr("device reset\n");
 
