@@ -58,7 +58,7 @@ static void vhci_stop(struct usb_hcd *hcd);
 static int vhci_get_frame_number(struct usb_hcd *hcd);
 
 static const char driver_name[] = "vhci_hcd";
-static const char driver_desc[] = "USB/IP Virtual Host Contoroller";
+static const char driver_desc[] = "USB/IP Virtual Host Controller";
 
 
 
@@ -416,14 +416,6 @@ static int vhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue, u16 wI
 				case USB_PORT_FEAT_SUSPEND:
 					dbg_vhci_rh(" SetPortFeature: USB_PORT_FEAT_SUSPEND\n");
 					uerr(" not yet\n");
-#if 0
-					dum->port_status[rhport] |= (1 << USB_PORT_FEAT_SUSPEND);
-					if (dum->driver->suspend) {
-						spin_unlock (&dum->lock);
-						dum->driver->suspend (&dum->gadget);
-						spin_lock (&dum->lock);
-					}
-#endif
 					break;
 				case USB_PORT_FEAT_RESET:
 					dbg_vhci_rh(" SetPortFeature: USB_PORT_FEAT_RESET\n");
@@ -432,12 +424,6 @@ static int vhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue, u16 wI
 						dum->port_status[rhport] &= ~(USB_PORT_STAT_ENABLE
 								| USB_PORT_STAT_LOW_SPEED
 								| USB_PORT_STAT_HIGH_SPEED);
-#if 0
-						if (dum->driver) {
-							dev_dbg (hardware, "disconnect\n");
-							stop_activity (dum, dum->driver);
-						}
-#endif
 
 						/* FIXME test that code path! */
 					}
