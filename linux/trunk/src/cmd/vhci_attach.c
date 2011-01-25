@@ -13,6 +13,7 @@
 #include <ctype.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <stdlib.h>
 #include <fcntl.h>
 #include <glib.h>
 
@@ -130,7 +131,7 @@ static int read_record(int rhport, char *host, char *port, char *busid)
 }
 
 
-void usbip_vhci_imported_device_dump(struct usbip_imported_device *idev)
+int usbip_vhci_imported_device_dump(struct usbip_imported_device *idev)
 {
 	char product_name[100];
 	char host[NI_MAXHOST] = "unknown host";
@@ -140,12 +141,14 @@ void usbip_vhci_imported_device_dump(struct usbip_imported_device *idev)
 
 	if (idev->status == VDEV_ST_NULL || idev->status == VDEV_ST_NOTASSIGNED) {
 		info("Port %02d: <%s>", idev->port, usbip_status_string(idev->status));
-		return;
+		return 0;
 	}
 
 	ret = read_record(idev->port, host, serv, remote_busid);
-	if (ret)
+	if (ret) {
 		err("red_record");
+		return -1;
+	}
 
 	info("Port %02d: <%s> at %s", idev->port,
 			usbip_status_string(idev->status), usbip_speed_string(idev->udev.speed));
@@ -181,6 +184,8 @@ void usbip_vhci_imported_device_dump(struct usbip_imported_device *idev)
 			}
 		}
 	}
+
+	return 0;
 }
 
 
@@ -348,7 +353,7 @@ static int query_import_device(int sockfd, char *busid)
 	return import_device(sockfd, &reply.udev);
 }
 
-static void attach_device(char *host, char *busid)
+static int attach_device(char *host, char *busid)
 {
 	int sockfd;
 	int ret;
@@ -357,26 +362,28 @@ static void attach_device(char *host, char *busid)
 	sockfd = tcp_connect(host, USBIP_PORT_STRING);
 	if (sockfd < 0) {
 		err("tcp connect");
-		return;
+		return -1;
 	}
 
 	rhport = query_import_device(sockfd, busid);
 	if (rhport < 0) {
 		err("query");
-		return;
+		return -1;
 	}
 
 	close(sockfd);
 
 	ret = record_connection(host, USBIP_PORT_STRING,
 			busid, rhport);
-	if (ret < 0)
+	if (ret < 0) {
 		err("record connection");
+		return -1;
+	}
 
-	return;
+	return 0;
 }
 
-static void detach_port(char *port)
+static int detach_port(char *port)
 {
 	int ret;
 	uint8_t portnum;
@@ -384,7 +391,7 @@ static void detach_port(char *port)
 	for (unsigned int i=0; i < strlen(port); i++)
 		if (!isdigit(port[i])) {
 			err("invalid port %s", port);
-			return;
+			return -1;
 		}
 
 	/* check max port */
@@ -394,23 +401,27 @@ static void detach_port(char *port)
 	ret = usbip_vhci_driver_open();
 	if (ret < 0) {
 		err("open vhci_driver");
-		return;
+		return -1;
 	}
 
-	usbip_vhci_detach_device(portnum);
+	ret = usbip_vhci_detach_device(portnum);
+	if (ret < 0)
+		return -1;
 
 	usbip_vhci_driver_close();
+
+	return ret;
 }
 
-static void show_exported_devices(char *host)
+static int show_exported_devices(char *host)
 {
 	int ret;
 	int sockfd;
 
 	sockfd = tcp_connect(host, USBIP_PORT_STRING);
 	if (sockfd < 0) {
-		info("- %s failed", host);
-		return;
+		err("- %s failed", host);
+		return -1;
 	}
 
 	info("- %s", host);
@@ -418,9 +429,11 @@ static void show_exported_devices(char *host)
 	ret = query_exported_devices(sockfd);
 	if (ret < 0) {
 		err("query");
+		return -1;
 	}
 
 	close(sockfd);
+	return 0;
 }
 
 static int attach_exported_devices(char *host, int sockfd)
@@ -478,15 +491,15 @@ static int attach_exported_devices(char *host, int sockfd)
 	return rep.ndev;
 }
 
-static void attach_devices_all(char *host)
+static int attach_devices_all(char *host)
 {
 	int ret;
 	int sockfd;
 
 	sockfd = tcp_connect(host, USBIP_PORT_STRING);
 	if(sockfd < 0) {
-		info("- %s failed", host);
-		return;
+		err("- %s failed", host);
+		return -1;
 	}
 
 	info("- %s", host);
@@ -494,9 +507,11 @@ static void attach_devices_all(char *host)
 	ret = attach_exported_devices(host, sockfd);
 	if(ret < 0) {
 		err("query");
+		return -1;
 	}
 
 	close(sockfd);
+	return 0;
 }
 
 
@@ -531,23 +546,25 @@ static void show_help(void)
 	printf("%s", help_message);
 }
 
-static void show_port_status(void)
+static int show_port_status(void)
 {
 	int ret;
 	struct usbip_imported_device *idev;
 
 	ret = usbip_vhci_driver_open();
 	if (ret < 0)
-		return;
-
+		return ret;
 
 	for (int i = 0; i < vhci_driver->nports; i++) {
 		idev = &vhci_driver->idev[i];
 
-		usbip_vhci_imported_device_dump(idev);
+		if (usbip_vhci_imported_device_dump(idev) < 0)
+			ret = -1;
 	}
 
 	usbip_vhci_driver_close();
+
+	return ret;
 }
 
 #define _GNU_SOURCE
@@ -650,28 +667,28 @@ int main(int argc, char *argv[])
 		}
 	}
 
-
+	ret = 0;
 	switch(cmd) {
 		case cmd_attach:
 			if (optind == argc - 2)
-				attach_device(argv[optind], argv[optind+1]);
+				ret = attach_device(argv[optind], argv[optind+1]);
 			else
 				show_help();
 			break;
 		case cmd_detach:
 			while (optind < argc)
-				detach_port(argv[optind++]);
+				ret = detach_port(argv[optind++]);
 			break;
 		case cmd_port:
-			show_port_status();
+			ret = show_port_status();
 			break;
 		case cmd_list:
 			while (optind < argc)
-				show_exported_devices(argv[optind++]);
+				ret = show_exported_devices(argv[optind++]);
 			break;
 		case cmd_attachall:
 			while(optind < argc)
-				attach_devices_all(argv[optind++]);
+				ret = attach_devices_all(argv[optind++]);
 			break;
 		case cmd_version:
 			printf("%s\n", version);
@@ -686,5 +703,5 @@ int main(int argc, char *argv[])
 
 	usbip_names_free();
 
-	return 0;
+	exit((ret == 0) ? EXIT_SUCCESS : EXIT_FAILURE);
 }
