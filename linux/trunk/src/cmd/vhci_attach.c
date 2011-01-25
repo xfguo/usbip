@@ -119,7 +119,10 @@ static int read_record(int rhport, char *host, char *port, char *busid)
 		return -1;
 	}
 
-	fscanf(file, "%s %s %s\n", host, port, busid);
+	if (fscanf(file, "%s %s %s\n", host, port, busid) != 3) {
+		err("fscanf");
+		return -1;
+	}
 
 	fclose(file);
 
