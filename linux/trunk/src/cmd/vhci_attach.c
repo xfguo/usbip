@@ -604,7 +604,7 @@ int main(int argc, char *argv[])
 
  	ret = usbip_names_init(USBIDS_FILE);
  	if (ret)
- 		err("open usb.ids");
+ 		notice("failed to open %s", USBIDS_FILE);
 
 	for (;;) {
 		int c;
