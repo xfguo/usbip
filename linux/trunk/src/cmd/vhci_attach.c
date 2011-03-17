@@ -146,7 +146,7 @@ int usbip_vhci_imported_device_dump(struct usbip_imported_device *idev)
 
 	ret = read_record(idev->port, host, serv, remote_busid);
 	if (ret) {
-		err("red_record");
+		err("read_record");
 		return -1;
 	}
 
