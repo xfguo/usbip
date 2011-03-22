@@ -316,7 +316,7 @@ static int query_import_device(int sockfd, char *busid)
 		return -1;
 	}
 
-	memcpy(&request.busid, busid, SYSFS_BUS_ID_SIZE);
+	strncpy(request.busid, busid, SYSFS_BUS_ID_SIZE-1);
 
 	PACK_OP_IMPORT_REQUEST(0, &request);
 
