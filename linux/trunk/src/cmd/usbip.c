@@ -486,6 +486,23 @@ static int attach_exported_devices(char *host, int sockfd)
 				udev.bDeviceSubClass, udev.bDeviceProtocol);
 
 		dbg("Attaching usb port %s from host %s on usbip, with deviceid: %s", udev.busid, host, product_name);
+
+		for (int j=0; j < udev.bNumInterfaces; j++) {
+			struct usb_interface uinf;
+
+			ret = usbip_recv(sockfd, (void *) &uinf, sizeof(uinf));
+			if (ret < 0) {
+				err("recv usb_interface[%d]", j);
+				return -1;
+			}
+
+			pack_usb_interface(0, &uinf);
+			usbip_names_get_class(class_name, sizeof(class_name), uinf.bInterfaceClass,
+					uinf.bInterfaceSubClass, uinf.bInterfaceProtocol);
+
+			dbg("interface %2d - %s", j, class_name);
+		}
+
 		attach_device(host, udev.busid);
 	}
 
