@@ -7,7 +7,10 @@ AC_INIT(usbip, 0.1.8, usbip-devel@lists.sourceforge.net)
 AC_DEFINE(USBIP_VERSION, 0x000106, Numeric version number)
 
 AC_CONFIG_SRCDIR([config.h.in])
-AM_INIT_AUTOMAKE
+AM_INIT_AUTOMAKE([foreign])
+
+# Silent build for automake >= 1.11
+m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
 AM_CONFIG_HEADER(config.h)
 
