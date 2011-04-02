@@ -39,9 +39,8 @@ static void show_help(void)
 	printf("  --other busid        use a device by a local driver\n");
 	printf("  --list               print usb devices and their drivers\n");
 	printf("  --list2              print usb devices and their drivers in parseable mode\n");
-	printf("  --allusbip           make all devices exportable\n");
-
 #if 0
+	printf("  --allusbip           make all devices exportable\n");
 	printf("  --export-to host     export the device to 'host'\n");
 	printf("  --unexport host      unexport a device previously exported to 'host'\n");
 	printf("  --busid busid        the busid used for --export-to\n");
